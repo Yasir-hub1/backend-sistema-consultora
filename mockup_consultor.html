@@ -1,0 +1,2291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LaboraConsult — Vista Consultor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  /* ── RESET & BASE ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:        #0B0F1A;
+    --bg2:       #111827;
+    --surface:   #161D2E;
+    --surface2:  #1E2740;
+    --border:    rgba(255,255,255,0.07);
+    --border2:   rgba(255,255,255,0.12);
+    --accent:    #4F81FF;
+    --accent2:   #7B61FF;
+    --teal:      #2DD4BF;
+    --amber:     #FBBF24;
+    --rose:      #FB7185;
+    --green:     #34D399;
+    --text:      #F0F4FF;
+    --text2:     #8B9EC7;
+    --text3:     #4A5880;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --r:         12px;
+    --r2:        8px;
+    --shadow:    0 4px 24px rgba(0,0,0,.45);
+    --shadow2:   0 2px 8px rgba(0,0,0,.3);
+    --sidebar-w: 260px;
+    --header-h:  64px;
+  }
+  html, body { height: 100%; font-family: var(--font-body); background: var(--bg); color: var(--text); font-size: 14px; }
+
+  /* ── LAYOUT ── */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; position: relative; z-index: 10; }
+  .main    { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── SIDEBAR ── */
+  .sidebar-logo { padding: 22px 20px 20px; border-bottom: 1px solid var(--border); }
+  .logo-mark { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; display: grid; place-items: center; }
+  .logo-icon svg { width: 20px; height: 20px; }
+  .logo-text { font-family: var(--font-head); font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+  .logo-text span { color: var(--accent); }
+  .logo-sub { font-size: 10px; color: var(--text3); font-weight: 500; letter-spacing: .5px; text-transform: uppercase; margin-top: 2px; }
+
+  .sidebar-user { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #4F81FF33, #7B61FF33); border: 2px solid #4F81FF55; display: grid; place-items: center; font-family: var(--font-head); font-weight: 700; font-size: 13px; color: var(--accent); flex-shrink: 0; }
+  .user-info .name { font-weight: 600; font-size: 13px; }
+  .user-info .role { font-size: 11px; color: var(--teal); font-weight: 500; }
+
+  .nav { flex: 1; padding: 12px 12px; overflow-y: auto; }
+  .nav-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text3); padding: 12px 8px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--r2); cursor: pointer; transition: background .15s, color .15s; color: var(--text2); font-size: 13px; font-weight: 500; position: relative; margin-bottom: 2px; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: linear-gradient(90deg, #4F81FF22, #4F81FF08); color: var(--accent); border-left: 2px solid var(--accent); padding-left: 8px; }
+  .nav-item svg { width: 17px; height: 17px; flex-shrink: 0; }
+  .nav-badge { margin-left: auto; background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 20px; }
+  .nav-badge.amber { background: var(--amber); color: #000; }
+
+  .sidebar-bottom { padding: 12px; border-top: 1px solid var(--border); }
+  .btn-sm { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--r2); font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; font-family: var(--font-body); }
+
+  /* ── TOPBAR ── */
+  .topbar { height: var(--header-h); background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 28px; gap: 16px; flex-shrink: 0; }
+  .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text2); }
+  .breadcrumb .sep { color: var(--text3); }
+  .breadcrumb .current { color: var(--text); font-weight: 600; }
+  .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .search-box { display: flex; align-items: center; gap: 8px; background: var(--bg2); border: 1px solid var(--border2); border-radius: 8px; padding: 6px 12px; width: 220px; }
+  .search-box input { background: none; border: none; outline: none; color: var(--text); font-family: var(--font-body); font-size: 13px; width: 100%; }
+  .search-box input::placeholder { color: var(--text3); }
+  .icon-btn { width: 34px; height: 34px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; display: grid; place-items: center; cursor: pointer; transition: background .15s; }
+  .icon-btn:hover { background: var(--border2); }
+  .icon-btn svg { width: 16px; height: 16px; color: var(--text2); }
+  .notif-dot { position: relative; }
+  .notif-dot::after { content:''; position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--rose); border-radius: 50%; border: 2px solid var(--surface); }
+
+  /* ── CONTENT ── */
+  .content { flex: 1; overflow-y: auto; padding: 28px; }
+  .content::-webkit-scrollbar { width: 5px; }
+  .content::-webkit-scrollbar-track { background: transparent; }
+  .content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  /* ── PAGE TITLE ── */
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; }
+  .page-title { font-family: var(--font-head); font-size: 24px; font-weight: 700; letter-spacing: -.4px; }
+  .page-sub { color: var(--text2); font-size: 13px; margin-top: 4px; }
+
+  /* ── BUTTONS ── */
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: var(--r2); font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; font-family: var(--font-body); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3a6ee8; transform: translateY(-1px); box-shadow: 0 4px 14px #4F81FF44; }
+  .btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); }
+  .btn-ghost:hover { color: var(--text); background: var(--border2); }
+  .btn-teal { background: #2DD4BF22; color: var(--teal); border: 1px solid #2DD4BF44; }
+  .btn-teal:hover { background: #2DD4BF33; }
+  .btn svg { width: 15px; height: 15px; }
+
+  /* ── STAT CARDS ── */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; position: relative; overflow: hidden; }
+  .stat-card::before { content:''; position: absolute; top: 0; right: 0; width: 80px; height: 80px; border-radius: 50%; opacity: .06; transform: translate(20px,-20px); }
+  .stat-card.blue::before   { background: var(--accent); }
+  .stat-card.teal::before   { background: var(--teal); }
+  .stat-card.amber::before  { background: var(--amber); }
+  .stat-card.rose::before   { background: var(--rose); }
+  .stat-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 14px; }
+  .stat-icon svg { width: 20px; height: 20px; }
+  .stat-icon.blue  { background: #4F81FF22; color: var(--accent); }
+  .stat-icon.teal  { background: #2DD4BF22; color: var(--teal); }
+  .stat-icon.amber { background: #FBBF2422; color: var(--amber); }
+  .stat-icon.rose  { background: #FB718522; color: var(--rose); }
+  .stat-val { font-family: var(--font-head); font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+  .stat-label { font-size: 12px; color: var(--text2); margin-top: 5px; font-weight: 500; }
+  .stat-trend { margin-top: 12px; font-size: 12px; color: var(--green); display: flex; align-items: center; gap: 4px; }
+  .stat-trend.down { color: var(--rose); }
+
+  /* ── SECTION TITLE ── */
+  .section-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .section-title { font-family: var(--font-head); font-size: 16px; font-weight: 700; }
+
+  /* ── TABLE ── */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: var(--surface2); padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--text3); }
+  tbody tr { border-top: 1px solid var(--border); transition: background .1s; cursor: pointer; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 13px 16px; font-size: 13px; color: var(--text2); }
+  tbody td:first-child { color: var(--text); font-weight: 500; }
+
+  /* ── BADGES ── */
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge::before { content:''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .badge-green  { background: #34D39920; color: var(--green);  } .badge-green::before  { background: var(--green); }
+  .badge-amber  { background: #FBBF2420; color: var(--amber);  } .badge-amber::before  { background: var(--amber); }
+  .badge-rose   { background: #FB718520; color: var(--rose);   } .badge-rose::before   { background: var(--rose); }
+  .badge-blue   { background: #4F81FF20; color: var(--accent); } .badge-blue::before   { background: var(--accent); }
+  .badge-teal   { background: #2DD4BF20; color: var(--teal);   } .badge-teal::before   { background: var(--teal); }
+
+  /* ── PILL TABS ── */
+  .tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 10px; padding: 4px; margin-bottom: 24px; }
+  .tab { flex: 1; padding: 8px; border-radius: 8px; text-align: center; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text2); transition: all .2s; }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow2); }
+
+  /* ── VIEWS ── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── EMPRESA CARDS ── */
+  .companies-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .company-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; cursor: pointer; transition: all .2s; position: relative; overflow: hidden; }
+  .company-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(79,129,255,.12); }
+  .company-card::after { content:''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transform: scaleX(0); transform-origin: left; transition: transform .25s; }
+  .company-card:hover::after { transform: scaleX(1); }
+  .company-logo { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, var(--surface2), var(--border2)); display: grid; place-items: center; font-family: var(--font-head); font-weight: 800; font-size: 16px; color: var(--text); margin-bottom: 14px; border: 1px solid var(--border2); }
+  .company-name { font-family: var(--font-head); font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .company-nit { font-size: 11px; color: var(--text3); font-weight: 500; }
+  .company-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .company-stat { text-align: center; }
+  .company-stat .val { font-family: var(--font-head); font-size: 18px; font-weight: 800; }
+  .company-stat .lbl { font-size: 10px; color: var(--text3); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+  .divider-v { width: 1px; background: var(--border); height: 30px; }
+
+  /* ── DETAIL VIEW ── */
+  .detail-header { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 24px 28px; margin-bottom: 24px; display: flex; align-items: center; gap: 20px; }
+  .detail-logo { width: 60px; height: 60px; border-radius: 14px; background: linear-gradient(135deg, #4F81FF22, #7B61FF22); display: grid; place-items: center; font-family: var(--font-head); font-weight: 800; font-size: 22px; border: 1px solid #4F81FF33; }
+  .detail-name { font-family: var(--font-head); font-size: 22px; font-weight: 800; }
+  .detail-info { font-size: 13px; color: var(--text2); margin-top: 4px; display: flex; gap: 16px; }
+  .detail-info span { display: flex; align-items: center; gap: 5px; }
+  .detail-actions { margin-left: auto; display: flex; gap: 10px; }
+
+  /* ── PROGRESS BARS ── */
+  .progress-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .progress-label { font-size: 12px; color: var(--text2); width: 80px; flex-shrink: 0; }
+  .progress-bar { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; }
+
+  /* ── PERSONAL DETAIL VIEW ── */
+  .personal-grid { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+  .personal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 24px; }
+  .personal-avatar { width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, #4F81FF44, #7B61FF44); display: grid; place-items: center; font-family: var(--font-head); font-weight: 800; font-size: 26px; margin: 0 auto 16px; border: 3px solid #4F81FF33; }
+  .personal-name { font-family: var(--font-head); font-size: 17px; font-weight: 700; text-align: center; }
+  .personal-ci { font-size: 12px; color: var(--text3); text-align: center; margin-top: 3px; }
+  .personal-badges { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
+  .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .info-row:last-child { border-bottom: none; }
+  .info-key { color: var(--text3); font-weight: 500; }
+  .info-val { color: var(--text); font-weight: 500; text-align: right; }
+
+  /* ── MODULE CARDS (AFP/CAJA/MINISTERIO) ── */
+  .module-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+  .module-tab { padding: 10px 20px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text2); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .2s; display: flex; align-items: center; gap: 8px; }
+  .module-tab svg { width: 16px; height: 16px; }
+  .module-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .module-tab.active.teal { color: var(--teal); border-bottom-color: var(--teal); }
+  .module-tab.active.amber { color: var(--amber); border-bottom-color: var(--amber); }
+  .module-content { display: none; }
+  .module-content.active { display: block; }
+
+  /* ── FILE UPLOAD ── */
+  .file-type-row { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px 20px; margin-bottom: 12px; }
+  .file-type-header { display: flex; align-items: center; justify-content: space-between; }
+  .file-type-name { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .file-type-name svg { width: 16px; height: 16px; }
+  .file-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .file-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+  .file-ext { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; font-size: 10px; font-weight: 800; letter-spacing: .3px; flex-shrink: 0; }
+  .file-ext.pdf { background: #FB718522; color: var(--rose); }
+  .file-ext.xls { background: #34D39922; color: var(--green); }
+  .file-ext.jpg { background: #4F81FF22; color: var(--accent); }
+  .file-ext.docx { background: #7B61FF22; color: var(--accent2); }
+  .file-name { font-size: 13px; font-weight: 500; }
+  .file-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .file-actions { margin-left: auto; display: flex; gap: 8px; }
+  .upload-zone { border: 2px dashed var(--border2); border-radius: var(--r); padding: 24px; text-align: center; cursor: pointer; transition: all .2s; margin-top: 12px; }
+  .upload-zone:hover { border-color: var(--accent); background: #4F81FF08; }
+  .upload-icon { width: 40px; height: 40px; background: var(--surface2); border-radius: 12px; display: grid; place-items: center; margin: 0 auto 10px; }
+  .upload-icon svg { width: 22px; height: 22px; color: var(--text3); }
+  .upload-text { font-size: 13px; color: var(--text2); font-weight: 500; }
+  .upload-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* ── FORM ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-full { grid-column: 1 / -1; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; }
+  .field input, .field select, .field textarea { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--r2); padding: 10px 12px; color: var(--text); font-family: var(--font-body); font-size: 13px; outline: none; transition: border .15s; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #4F81FF18; }
+  .field input::placeholder { color: var(--text3); }
+  .field select option { background: var(--surface2); }
+  .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 24px; margin-bottom: 20px; }
+  .form-section-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; color: var(--accent); }
+  .form-section-title svg { width: 16px; height: 16px; }
+
+  /* ── ALERTS / PENDING ── */
+  .alert-row { display: flex; align-items: center; gap: 12px; background: var(--surface2); border-radius: var(--r2); padding: 12px 14px; margin-bottom: 8px; }
+  .alert-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .alert-text { font-size: 13px; flex: 1; }
+  .alert-time { font-size: 11px; color: var(--text3); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+  .view.active { animation: fadeUp .25s ease; }
+
+  /* ── SCROLLBAR in sidebar ── */
+  .nav::-webkit-scrollbar { width: 3px; }
+  .nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── BACK BUTTON ── */
+  .back-btn { display: inline-flex; align-items: center; gap: 6px; color: var(--text2); font-size: 13px; font-weight: 500; cursor: pointer; margin-bottom: 20px; transition: color .15s; }
+  .back-btn:hover { color: var(--accent); }
+  .back-btn svg { width: 16px; height: 16px; }
+
+  /* ── MINI CHART ── */
+  .chart-bar-group { display: flex; align-items: flex-end; gap: 4px; height: 40px; }
+  .chart-bar { flex: 1; border-radius: 3px 3px 0 0; background: var(--accent); opacity: .5; transition: opacity .15s; }
+  .chart-bar:hover { opacity: 1; }
+  .chart-bar.current { opacity: 1; background: var(--teal); }
+
+  /* ── EMPTY STATE ── */
+  .empty-state { text-align: center; padding: 40px; color: var(--text3); }
+  .empty-state svg { width: 48px; height: 48px; margin: 0 auto 12px; opacity: .4; }
+  .empty-state p { font-size: 14px; }
+
+  /* ── TWO-COL LAYOUT ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  /* ── ACTIVITY FEED ── */
+  .activity-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 5px; flex-shrink: 0; }
+  .activity-body { flex: 1; }
+  .activity-text { font-size: 13px; line-height: 1.5; }
+  .activity-text strong { color: var(--text); }
+  .activity-time { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+  /* ── TEAM / EQUIPO ── */
+  --violet: #A78BFA;
+  .team-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .team-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 22px; cursor: pointer; transition: all .2s; position: relative; overflow: hidden; }
+  .team-card:hover { border-color: #A78BFA66; transform: translateY(-2px); box-shadow: 0 8px 32px rgba(167,139,250,.1); }
+  .team-card::after { content:''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #A78BFA, #7B61FF); transform: scaleX(0); transform-origin: left; transition: transform .25s; }
+  .team-card:hover::after { transform: scaleX(1); }
+  .team-avatar { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-head); font-weight: 800; font-size: 18px; margin-bottom: 14px; position: relative; }
+  .team-avatar .online-dot { position: absolute; bottom: 2px; right: 2px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--surface); }
+  .team-avatar .online-dot.on  { background: var(--green); }
+  .team-avatar .online-dot.off { background: var(--text3); }
+  .team-name { font-family: var(--font-head); font-size: 15px; font-weight: 700; }
+  .team-cargo { font-size: 12px; font-weight: 600; margin-top: 4px; }
+  .team-email { font-size: 11px; color: var(--text3); margin-top: 3px; }
+  .team-card-footer { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .team-companies { display: flex; gap: 4px; flex-wrap: wrap; }
+  .company-chip { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); }
+
+  /* Role color pills */
+  .role-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: .2px; }
+  .role-coordinador { background: #A78BFA22; color: #A78BFA; border: 1px solid #A78BFA44; }
+  .role-afp         { background: #4F81FF22; color: var(--accent); border: 1px solid #4F81FF44; }
+  .role-caja        { background: #2DD4BF22; color: var(--teal); border: 1px solid #2DD4BF44; }
+  .role-ministerio  { background: #FBBF2422; color: var(--amber); border: 1px solid #FBBF2444; }
+  .role-asistente   { background: #34D39922; color: var(--green); border: 1px solid #34D39944; }
+  .role-supervisor  { background: #FB718522; color: var(--rose); border: 1px solid #FB718544; }
+
+  /* Permission toggle */
+  .perm-table { width: 100%; border-collapse: collapse; }
+  .perm-table th { background: var(--surface2); padding: 9px 14px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--text3); }
+  .perm-table td { padding: 11px 14px; border-top: 1px solid var(--border); font-size: 13px; }
+  .perm-table tr:hover td { background: rgba(255,255,255,.02); }
+  .toggle { width: 36px; height: 20px; background: var(--surface2); border-radius: 10px; position: relative; cursor: pointer; transition: background .2s; border: 1px solid var(--border2); flex-shrink: 0; }
+  .toggle::after { content:''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text3); transition: all .2s; }
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle.on::after { left: 18px; background: #fff; }
+  .toggle.on.teal { background: var(--teal); border-color: var(--teal); }
+  .toggle.on.amber { background: var(--amber); border-color: var(--amber); }
+
+  /* Company assignment chips in team detail */
+  .assign-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .assign-row:last-child { border-bottom: none; }
+  .assign-logo { width: 32px; height: 32px; border-radius: 8px; background: var(--surface2); display: grid; place-items: center; font-family: var(--font-head); font-weight: 800; font-size: 11px; border: 1px solid var(--border2); flex-shrink: 0; }
+  .assign-info { flex: 1; margin-left: 10px; }
+  .assign-name { font-size: 13px; font-weight: 600; }
+  .assign-detail { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* Access card */
+  .access-card { background: linear-gradient(135deg, #A78BFA11, #7B61FF11); border: 1px solid #A78BFA33; border-radius: var(--r); padding: 20px; }
+  .access-status { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .access-icon { width: 44px; height: 44px; background: #A78BFA22; border-radius: 12px; display: grid; place-items: center; }
+  .access-icon svg { width: 22px; height: 22px; color: #A78BFA; }
+  .access-label { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .access-value { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--text); margin-top: 2px; }
+  .credential-row { background: var(--surface2); border-radius: 8px; padding: 10px 14px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .credential-key { font-size: 11px; color: var(--text3); font-weight: 600; }
+  .credential-val { font-size: 13px; font-weight: 500; font-family: monospace; color: var(--text2); }
+
+  /* Badge purple */
+  .badge-purple { background: #A78BFA20; color: #A78BFA; } .badge-purple::before { background: #A78BFA; }
+  .nav-badge.purple { background: #A78BFA; color: #fff; }
+
+  /* Three-col detail grid */
+  .team-detail-grid { display: grid; grid-template-columns: 290px 1fr; gap: 20px; }
+
+  /* Section inner tabs */
+  .inner-tabs { display: flex; gap: 2px; margin-bottom: 18px; background: var(--surface2); border-radius: 8px; padding: 3px; }
+  .inner-tab { flex: 1; text-align: center; padding: 7px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: var(--text3); cursor: pointer; transition: all .15s; }
+  .inner-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow2); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-text">Labora<span>Consult</span></div>
+          <div class="logo-sub">Sistema de Gestión</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="avatar">CR</div>
+      <div class="user-info">
+        <div class="name">Carlos Ruiz</div>
+        <div class="role">● Consultor Activo</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-label">Principal</div>
+      <div class="nav-item active" onclick="showView('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" onclick="showView('empresas')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M3 7v14M21 7v14M6 21V7M18 21V7M6 7l6-4 6 4"/><path d="M9 21v-4h6v4"/></svg>
+        Mis Empresas
+        <span class="nav-badge">8</span>
+      </div>
+
+      <div class="nav-label">Gestión</div>
+      <div class="nav-item" onclick="showView('personal_list')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Personal
+        <span class="nav-badge">124</span>
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Documentos
+        <span class="nav-badge amber">5</span>
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+        Pendientes
+        <span class="nav-badge amber">3</span>
+      </div>
+
+      <div class="nav-item" onclick="showView('equipo')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>
+        Mi Equipo
+        <span class="nav-badge purple">6</span>
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Documentos
+        <span class="nav-badge amber">5</span>
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+        Pendientes
+        <span class="nav-badge amber">3</span>
+      </div>
+
+      <div class="nav-label">Reportes</div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Estadísticas
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar
+      </div>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="nav-item" style="margin-bottom:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+        Mi Perfil
+      </div>
+      <div class="nav-item" style="color: var(--rose)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Cerrar Sesión
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN ══ -->
+  <main class="main">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="breadcrumb" id="breadcrumb">
+        <span>Consultor</span>
+        <span class="sep">›</span>
+        <span class="current">Dashboard</span>
+      </div>
+      <div class="topbar-actions">
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--text3)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Buscar empresa, personal...">
+        </div>
+        <div class="icon-btn notif-dot">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <div class="icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        </div>
+        <div class="avatar" style="cursor:pointer">CR</div>
+      </div>
+    </header>
+
+    <!-- ══ CONTENT AREA ══ -->
+    <div class="content">
+
+      <!-- ─────────── VIEW: DASHBOARD ─────────── -->
+      <div class="view active" id="view-dashboard">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Buenos días, Carlos 👋</div>
+            <div class="page-sub">Aquí tienes un resumen de tu actividad — martes, 31 de marzo 2026</div>
+          </div>
+          <button class="btn btn-primary" onclick="showView('registro_personal')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo Personal
+          </button>
+        </div>
+
+        <!-- STAT CARDS -->
+        <div class="stats-grid">
+          <div class="stat-card blue">
+            <div class="stat-icon blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M3 7v14M21 7v14M6 7l6-4 6 4"/><path d="M9 21v-4h6v4"/></svg>
+            </div>
+            <div class="stat-val">8</div>
+            <div class="stat-label">Empresas activas</div>
+            <div class="stat-trend">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+              +2 este mes
+            </div>
+          </div>
+          <div class="stat-card teal">
+            <div class="stat-icon teal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            </div>
+            <div class="stat-val">124</div>
+            <div class="stat-label">Personal registrado</div>
+            <div class="stat-trend">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+              +11 este mes
+            </div>
+          </div>
+          <div class="stat-card amber">
+            <div class="stat-icon amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+            </div>
+            <div class="stat-val">3</div>
+            <div class="stat-label">Pendientes urgentes</div>
+            <div class="stat-trend down">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 9 12 15 6 9"/></svg>
+              Requieren atención
+            </div>
+          </div>
+          <div class="stat-card rose">
+            <div class="stat-icon rose">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            </div>
+            <div class="stat-val">37</div>
+            <div class="stat-label">Documentos este mes</div>
+            <div class="stat-trend">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+              +8 esta semana
+            </div>
+          </div>
+        </div>
+
+        <!-- TWO COLUMN -->
+        <div class="two-col" style="margin-bottom: 24px;">
+
+          <!-- Mis empresas resumen -->
+          <div>
+            <div class="section-hd">
+              <div class="section-title">Empresas Recientes</div>
+              <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="showView('empresas')">Ver todas →</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Empresa</th><th>Personal</th><th>Estado</th></tr>
+                </thead>
+                <tbody>
+                  <tr onclick="showView('empresa_detalle')">
+                    <td><div style="font-weight:600">Constructora Norte SA</div><div style="font-size:11px;color:var(--text3)">NIT 5678901</div></td>
+                    <td>28</td>
+                    <td><span class="badge badge-green">Activa</span></td>
+                  </tr>
+                  <tr onclick="showView('empresa_detalle')">
+                    <td><div style="font-weight:600">Importadora Central</div><div style="font-size:11px;color:var(--text3)">NIT 3456789</div></td>
+                    <td>14</td>
+                    <td><span class="badge badge-green">Activa</span></td>
+                  </tr>
+                  <tr onclick="showView('empresa_detalle')">
+                    <td><div style="font-weight:600">Agro Beni Ltda.</div><div style="font-size:11px;color:var(--text3)">NIT 9012345</div></td>
+                    <td>41</td>
+                    <td><span class="badge badge-amber">Pendiente</span></td>
+                  </tr>
+                  <tr onclick="showView('empresa_detalle')">
+                    <td><div style="font-weight:600">TechSoft Bolivia</div><div style="font-size:11px;color:var(--text3)">NIT 1234567</div></td>
+                    <td>19</td>
+                    <td><span class="badge badge-green">Activa</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Alertas y pendientes -->
+          <div>
+            <div class="section-hd">
+              <div class="section-title">⚠ Pendientes</div>
+              <span class="badge badge-amber">3 urgentes</span>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;">
+              <div class="alert-row">
+                <div class="alert-dot" style="background:var(--rose)"></div>
+                <div class="alert-text"><strong>Agro Beni Ltda.</strong> — AFP formulario del mes vence hoy</div>
+                <div class="alert-time">Hoy</div>
+              </div>
+              <div class="alert-row">
+                <div class="alert-dot" style="background:var(--amber)"></div>
+                <div class="alert-text"><strong>Constructora Norte</strong> — 3 empleados sin CAJA actualizada</div>
+                <div class="alert-time">2d</div>
+              </div>
+              <div class="alert-row">
+                <div class="alert-dot" style="background:var(--amber)"></div>
+                <div class="alert-text"><strong>TechSoft Bolivia</strong> — Ministerio: planilla pendiente de subir</div>
+                <div class="alert-time">3d</div>
+              </div>
+              <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+                <div class="section-title" style="font-size:13px;margin-bottom:12px">Actividad Reciente</div>
+                <div class="activity-item">
+                  <div class="activity-dot" style="background:var(--green)"></div>
+                  <div class="activity-body">
+                    <div class="activity-text">Subiste <strong>AFP_Marzo_Const.pdf</strong> para <strong>Constructora Norte</strong></div>
+                    <div class="activity-time">Hace 1 hora</div>
+                  </div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-dot" style="background:var(--accent)"></div>
+                  <div class="activity-body">
+                    <div class="activity-text">Registraste a <strong>María López</strong> en Importadora Central</div>
+                    <div class="activity-time">Ayer, 14:32</div>
+                  </div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-dot" style="background:var(--teal)"></div>
+                  <div class="activity-body">
+                    <div class="activity-text">Actualizaste datos de <strong>CAJA</strong> — TechSoft Bolivia</div>
+                    <div class="activity-time">Ayer, 09:15</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Cobertura gestión -->
+        <div class="section-hd">
+          <div class="section-title">Cobertura de Gestiones (todas las empresas)</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;">
+          <div class="progress-row">
+            <div class="progress-label" style="font-weight:600;color:var(--accent)">AFP</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:82%;background:var(--accent)"></div></div>
+            <div style="font-size:12px;color:var(--text2);width:35px;text-align:right">82%</div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label" style="font-weight:600;color:var(--teal)">CAJA</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:67%;background:var(--teal)"></div></div>
+            <div style="font-size:12px;color:var(--text2);width:35px;text-align:right">67%</div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label" style="font-weight:600;color:var(--amber)">MINT</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:54%;background:var(--amber)"></div></div>
+            <div style="font-size:12px;color:var(--text2);width:35px;text-align:right">54%</div>
+          </div>
+        </div>
+      </div>
+      <!-- END DASHBOARD -->
+
+      <!-- ─────────── VIEW: EMPRESAS ─────────── -->
+      <div class="view" id="view-empresas">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Mis Empresas</div>
+            <div class="page-sub">8 empresas bajo tu gestión</div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-ghost">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="15" height="15"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="18" y2="18"/></svg>
+              Filtrar
+            </button>
+            <button class="btn btn-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nueva Empresa
+            </button>
+          </div>
+        </div>
+
+        <div class="companies-grid">
+          <!-- Company cards -->
+          <div class="company-card" onclick="showView('empresa_detalle')">
+            <div class="company-logo">CN</div>
+            <div class="company-name">Constructora Norte SA</div>
+            <div class="company-nit">NIT 5678901 — Santa Cruz</div>
+            <div style="margin-top:10px"><span class="badge badge-green">Activa</span></div>
+            <div class="company-meta">
+              <div class="company-stat"><div class="val" style="color:var(--text)">28</div><div class="lbl">Personal</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--green)">95%</div><div class="lbl">AFP</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--teal)">88%</div><div class="lbl">Caja</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--amber)">70%</div><div class="lbl">Min.</div></div>
+            </div>
+          </div>
+          <div class="company-card" onclick="showView('empresa_detalle')">
+            <div class="company-logo" style="background:linear-gradient(135deg,#2DD4BF22,#34D39922)">IC</div>
+            <div class="company-name">Importadora Central</div>
+            <div class="company-nit">NIT 3456789 — La Paz</div>
+            <div style="margin-top:10px"><span class="badge badge-green">Activa</span></div>
+            <div class="company-meta">
+              <div class="company-stat"><div class="val" style="color:var(--text)">14</div><div class="lbl">Personal</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--green)">100%</div><div class="lbl">AFP</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--teal)">79%</div><div class="lbl">Caja</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--amber)">64%</div><div class="lbl">Min.</div></div>
+            </div>
+          </div>
+          <div class="company-card" onclick="showView('empresa_detalle')">
+            <div class="company-logo" style="background:linear-gradient(135deg,#FBBF2422,#F59E0B22)">AB</div>
+            <div class="company-name">Agro Beni Ltda.</div>
+            <div class="company-nit">NIT 9012345 — Beni</div>
+            <div style="margin-top:10px"><span class="badge badge-amber">Pendiente</span></div>
+            <div class="company-meta">
+              <div class="company-stat"><div class="val" style="color:var(--text)">41</div><div class="lbl">Personal</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--amber)">61%</div><div class="lbl">AFP</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--rose)">43%</div><div class="lbl">Caja</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--rose)">30%</div><div class="lbl">Min.</div></div>
+            </div>
+          </div>
+          <div class="company-card" onclick="showView('empresa_detalle')">
+            <div class="company-logo" style="background:linear-gradient(135deg,#7B61FF22,#4F81FF22)">TS</div>
+            <div class="company-name">TechSoft Bolivia</div>
+            <div class="company-nit">NIT 1234567 — Cochabamba</div>
+            <div style="margin-top:10px"><span class="badge badge-green">Activa</span></div>
+            <div class="company-meta">
+              <div class="company-stat"><div class="val" style="color:var(--text)">19</div><div class="lbl">Personal</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--green)">90%</div><div class="lbl">AFP</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--teal)">85%</div><div class="lbl">Caja</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--amber)">55%</div><div class="lbl">Min.</div></div>
+            </div>
+          </div>
+          <div class="company-card" onclick="showView('empresa_detalle')">
+            <div class="company-logo" style="background:linear-gradient(135deg,#FB718522,#F4366422)">MC</div>
+            <div class="company-name">Minería del Cerro</div>
+            <div class="company-nit">NIT 6789012 — Potosí</div>
+            <div style="margin-top:10px"><span class="badge badge-green">Activa</span></div>
+            <div class="company-meta">
+              <div class="company-stat"><div class="val" style="color:var(--text)">32</div><div class="lbl">Personal</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--green)">76%</div><div class="lbl">AFP</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--green)">81%</div><div class="lbl">Caja</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--amber)">65%</div><div class="lbl">Min.</div></div>
+            </div>
+          </div>
+          <div class="company-card" onclick="showView('empresa_detalle')">
+            <div class="company-logo" style="background:linear-gradient(135deg,#34D39922,#059F6B22)">FS</div>
+            <div class="company-name">Farmacia Salud</div>
+            <div class="company-nit">NIT 2345678 — Oruro</div>
+            <div style="margin-top:10px"><span class="badge badge-green">Activa</span></div>
+            <div class="company-meta">
+              <div class="company-stat"><div class="val" style="color:var(--text)">9</div><div class="lbl">Personal</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--green)">100%</div><div class="lbl">AFP</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--green)">100%</div><div class="lbl">Caja</div></div>
+              <div class="divider-v"></div>
+              <div class="company-stat"><div class="val" style="color:var(--green)">100%</div><div class="lbl">Min.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- END EMPRESAS -->
+
+      <!-- ─────────── VIEW: EMPRESA DETALLE ─────────── -->
+      <div class="view" id="view-empresa_detalle">
+        <div class="back-btn" onclick="showView('empresas')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+          Volver a Empresas
+        </div>
+
+        <div class="detail-header">
+          <div class="detail-logo">CN</div>
+          <div>
+            <div class="detail-name">Constructora Norte SA</div>
+            <div class="detail-info">
+              <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>NIT 5678901</span>
+              <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Santa Cruz, Bolivia</span>
+              <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.8 19.8 0 0 1 3.07 4.18 2 2 0 0 1 5.09 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L9.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 23 17z"/></svg>+591 3 3456789</span>
+            </div>
+          </div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:16px">
+            <div style="text-align:center">
+              <div style="font-family:var(--font-head);font-size:28px;font-weight:800">28</div>
+              <div style="font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.5px">Personal</div>
+            </div>
+            <div style="width:1px;height:40px;background:var(--border)"></div>
+            <div class="detail-actions">
+              <button class="btn btn-ghost">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="15" height="15"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Editar
+              </button>
+              <button class="btn btn-primary" onclick="showView('registro_personal')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Agregar Personal
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress / coverage -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:24px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <span style="font-weight:700;font-size:13px;color:var(--accent)">AFP</span>
+              <span style="font-size:13px;font-weight:700;color:var(--green)">95%</span>
+            </div>
+            <div class="progress-bar" style="height:8px"><div class="progress-fill" style="width:95%;background:var(--accent)"></div></div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px">27 de 28 empleados al día</div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <span style="font-weight:700;font-size:13px;color:var(--teal)">CAJA</span>
+              <span style="font-size:13px;font-weight:700;color:var(--amber)">88%</span>
+            </div>
+            <div class="progress-bar" style="height:8px"><div class="progress-fill" style="width:88%;background:var(--teal)"></div></div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px">3 empleados con documentos pendientes</div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <span style="font-weight:700;font-size:13px;color:var(--amber)">Ministerio</span>
+              <span style="font-size:13px;font-weight:700;color:var(--amber)">70%</span>
+            </div>
+            <div class="progress-bar" style="height:8px"><div class="progress-fill" style="width:70%;background:var(--amber)"></div></div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px">8 empleados sin planilla actualizada</div>
+          </div>
+        </div>
+
+        <!-- Personal List -->
+        <div class="section-hd">
+          <div class="section-title">Personal de la Empresa</div>
+          <div style="display:flex;gap:8px">
+            <div class="search-box" style="width:180px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--text3)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" placeholder="Buscar...">
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Nombre</th><th>CI</th><th>Cargo</th><th>AFP</th><th>CAJA</th><th>Ministerio</th><th>Estado</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr onclick="showView('personal_detalle')">
+                <td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:30px;height:30px;font-size:11px">JM</div>Juan Mamani</div></td>
+                <td>8234567</td>
+                <td style="color:var(--text2)">Ingeniero Civil</td>
+                <td><span class="badge badge-green">OK</span></td>
+                <td><span class="badge badge-green">OK</span></td>
+                <td><span class="badge badge-amber">Pendiente</span></td>
+                <td><span class="badge badge-green">Activo</span></td>
+                <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="event.stopPropagation();showView('personal_detalle')">Ver →</button></td>
+              </tr>
+              <tr onclick="showView('personal_detalle')">
+                <td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:30px;height:30px;font-size:11px">ML</div>María López</div></td>
+                <td>5678901</td>
+                <td style="color:var(--text2)">Contadora</td>
+                <td><span class="badge badge-green">OK</span></td>
+                <td><span class="badge badge-rose">Sin doc.</span></td>
+                <td><span class="badge badge-rose">Sin doc.</span></td>
+                <td><span class="badge badge-green">Activa</span></td>
+                <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="event.stopPropagation();showView('personal_detalle')">Ver →</button></td>
+              </tr>
+              <tr onclick="showView('personal_detalle')">
+                <td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:30px;height:30px;font-size:11px">PC</div>Pedro Cruz</div></td>
+                <td>4567890</td>
+                <td style="color:var(--text2)">Supervisor Obra</td>
+                <td><span class="badge badge-green">OK</span></td>
+                <td><span class="badge badge-green">OK</span></td>
+                <td><span class="badge badge-green">OK</span></td>
+                <td><span class="badge badge-green">Activo</span></td>
+                <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="event.stopPropagation();showView('personal_detalle')">Ver →</button></td>
+              </tr>
+              <tr onclick="showView('personal_detalle')">
+                <td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:30px;height:30px;font-size:11px">AQ</div>Ana Quispe</div></td>
+                <td>7890123</td>
+                <td style="color:var(--text2)">Arquitecta</td>
+                <td><span class="badge badge-amber">Pendiente</span></td>
+                <td><span class="badge badge-green">OK</span></td>
+                <td><span class="badge badge-amber">Pendiente</span></td>
+                <td><span class="badge badge-green">Activa</span></td>
+                <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="event.stopPropagation();showView('personal_detalle')">Ver →</button></td>
+              </tr>
+              <tr onclick="showView('personal_detalle')">
+                <td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:30px;height:30px;font-size:11px">RV</div>Roberto Vargas</div></td>
+                <td>3456789</td>
+                <td style="color:var(--text2)">Electricista</td>
+                <td><span class="badge badge-green">OK</span></td>
+                <td><span class="badge badge-green">OK</span></td>
+                <td><span class="badge badge-green">OK</span></td>
+                <td><span class="badge badge-blue">Licencia</span></td>
+                <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="event.stopPropagation();showView('personal_detalle')">Ver →</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- END EMPRESA DETALLE -->
+
+      <!-- ─────────── VIEW: PERSONAL DETALLE ─────────── -->
+      <div class="view" id="view-personal_detalle">
+        <div class="back-btn" onclick="showView('empresa_detalle')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+          Volver a Constructora Norte SA
+        </div>
+
+        <div class="personal-grid">
+          <!-- Left card: personal info -->
+          <div>
+            <div class="personal-card" style="text-align:left">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+                <div class="personal-avatar" style="margin:0;width:55px;height:55px;font-size:20px">JM</div>
+                <div>
+                  <div class="personal-name" style="text-align:left;font-size:18px">Juan Mamani</div>
+                  <div class="personal-ci" style="text-align:left">CI: 8234567 SC</div>
+                  <div style="margin-top:6px"><span class="badge badge-green">Activo</span></div>
+                </div>
+              </div>
+
+              <div class="info-row"><span class="info-key">Cargo</span><span class="info-val">Ingeniero Civil</span></div>
+              <div class="info-row"><span class="info-key">Empresa</span><span class="info-val" style="color:var(--accent)">Constructora Norte</span></div>
+              <div class="info-row"><span class="info-key">Fecha Ingreso</span><span class="info-val">15 Ene 2022</span></div>
+              <div class="info-row"><span class="info-key">Salario</span><span class="info-val">Bs. 5,800</span></div>
+              <div class="info-row"><span class="info-key">Teléfono</span><span class="info-val">+591 72345678</span></div>
+              <div class="info-row"><span class="info-key">Correo</span><span class="info-val"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="711b5f1c101c101f18311c10181d5f121e1c">[email&#160;protected]</a></span></div>
+              <div class="info-row"><span class="info-key">AFP</span><span class="info-val">Futuro de Bolivia</span></div>
+              <div class="info-row"><span class="info-key">Nro. AFP</span><span class="info-val">AFP-00234567</span></div>
+              <div class="info-row"><span class="info-key">CAJA</span><span class="info-val">Caja Nacional de Salud</span></div>
+              <div class="info-row"><span class="info-key">Nro. Asegurado</span><span class="info-val">CNS-8234567</span></div>
+
+              <div style="margin-top:16px;display:flex;gap:8px">
+                <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:12px" onclick="showView('registro_personal')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Editar datos
+                </button>
+              </div>
+            </div>
+
+            <!-- Estado general -->
+            <div class="personal-card" style="margin-top:16px">
+              <div class="section-title" style="font-size:13px;margin-bottom:14px">Estado de Gestiones</div>
+              <div class="progress-row">
+                <div class="progress-label" style="font-weight:700;font-size:12px;color:var(--accent)">AFP</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--accent)"></div></div>
+                <span class="badge badge-green" style="margin-left:8px">OK</span>
+              </div>
+              <div class="progress-row">
+                <div class="progress-label" style="font-weight:700;font-size:12px;color:var(--teal)">CAJA</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--teal)"></div></div>
+                <span class="badge badge-green" style="margin-left:8px">OK</span>
+              </div>
+              <div class="progress-row">
+                <div class="progress-label" style="font-weight:700;font-size:12px;color:var(--amber)">Min.Trab.</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:40%;background:var(--amber)"></div></div>
+                <span class="badge badge-amber" style="margin-left:8px">Pend.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: module tabs -->
+          <div>
+            <div class="module-tabs">
+              <div class="module-tab active" onclick="switchModule(this,'afp')" id="mtab-afp">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                AFP
+              </div>
+              <div class="module-tab" onclick="switchModule(this,'caja')" id="mtab-caja" style="">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                CAJA
+              </div>
+              <div class="module-tab" onclick="switchModule(this,'mt')" id="mtab-mt">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                Ministerio de Trabajo
+              </div>
+            </div>
+
+            <!-- MODULE: AFP -->
+            <div class="module-content active" id="mc-afp">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div>
+                  <div style="font-weight:700;font-size:15px">AFP — Futuro de Bolivia</div>
+                  <div style="font-size:12px;color:var(--text2);margin-top:3px">Nro. Afiliado: AFP-00234567</div>
+                </div>
+                <span class="badge badge-green">Al día</span>
+              </div>
+
+              <!-- File types -->
+              <div class="file-type-row">
+                <div class="file-type-header">
+                  <div class="file-type-name">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                    Planilla de Aportes AFP
+                  </div>
+                  <button class="btn btn-teal" style="font-size:11px;padding:5px 12px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Subir
+                  </button>
+                </div>
+                <div class="file-list">
+                  <div class="file-item">
+                    <div class="file-ext pdf">PDF</div>
+                    <div>
+                      <div class="file-name">AFP_Planilla_Marzo2026.pdf</div>
+                      <div class="file-meta">Subido 28 Mar 2026 · 245 KB</div>
+                    </div>
+                    <div class="file-actions">
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                    </div>
+                  </div>
+                  <div class="file-item">
+                    <div class="file-ext pdf">PDF</div>
+                    <div>
+                      <div class="file-name">AFP_Planilla_Feb2026.pdf</div>
+                      <div class="file-meta">Subido 27 Feb 2026 · 231 KB</div>
+                    </div>
+                    <div class="file-actions">
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="file-type-row">
+                <div class="file-type-header">
+                  <div class="file-type-name">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    Comprobante de Pago AFP
+                  </div>
+                  <button class="btn btn-teal" style="font-size:11px;padding:5px 12px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Subir
+                  </button>
+                </div>
+                <div class="file-list">
+                  <div class="file-item">
+                    <div class="file-ext xls">XLS</div>
+                    <div>
+                      <div class="file-name">Comprobante_AFP_Marzo.xlsx</div>
+                      <div class="file-meta">Subido 28 Mar 2026 · 88 KB</div>
+                    </div>
+                    <div class="file-actions">
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="upload-zone">
+                  <div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                  <div class="upload-text">Arrastra o haz clic para subir</div>
+                  <div class="upload-sub">PDF, XLS, DOCX — máx. 10 MB</div>
+                </div>
+              </div>
+
+              <div class="file-type-row">
+                <div class="file-type-header">
+                  <div class="file-type-name">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+                    Ficha de Afiliación AFP
+                  </div>
+                  <button class="btn btn-teal" style="font-size:11px;padding:5px 12px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Subir
+                  </button>
+                </div>
+                <div class="file-list">
+                  <div class="file-item">
+                    <div class="file-ext pdf">PDF</div>
+                    <div>
+                      <div class="file-name">Ficha_Afiliacion_JMamani.pdf</div>
+                      <div class="file-meta">Subido 15 Ene 2022 · 420 KB</div>
+                    </div>
+                    <div class="file-actions">
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- MODULE: CAJA -->
+            <div class="module-content" id="mc-caja">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div>
+                  <div style="font-weight:700;font-size:15px">CAJA — Caja Nacional de Salud</div>
+                  <div style="font-size:12px;color:var(--text2);margin-top:3px">Nro. Asegurado: CNS-8234567</div>
+                </div>
+                <span class="badge badge-green">Al día</span>
+              </div>
+
+              <div class="file-type-row">
+                <div class="file-type-header">
+                  <div class="file-type-name">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+                    Formulario de Afiliación CNS
+                  </div>
+                  <button class="btn btn-teal" style="font-size:11px;padding:5px 12px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Subir
+                  </button>
+                </div>
+                <div class="file-list">
+                  <div class="file-item">
+                    <div class="file-ext pdf">PDF</div>
+                    <div>
+                      <div class="file-name">CNS_Afiliacion_JMamani.pdf</div>
+                      <div class="file-meta">Subido 15 Ene 2022 · 312 KB</div>
+                    </div>
+                    <div class="file-actions">
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="file-type-row">
+                <div class="file-type-header">
+                  <div class="file-type-name">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    Póliza CNS Mensual
+                  </div>
+                  <button class="btn btn-teal" style="font-size:11px;padding:5px 12px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Subir
+                  </button>
+                </div>
+                <div class="file-list">
+                  <div class="file-item">
+                    <div class="file-ext pdf">PDF</div>
+                    <div>
+                      <div class="file-name">Poliza_CNS_Marzo2026.pdf</div>
+                      <div class="file-meta">Subido 28 Mar 2026 · 185 KB</div>
+                    </div>
+                    <div class="file-actions">
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="file-type-row">
+                <div class="file-type-header">
+                  <div class="file-type-name">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    Carnet de Asegurado
+                  </div>
+                  <button class="btn btn-teal" style="font-size:11px;padding:5px 12px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Subir
+                  </button>
+                </div>
+                <div class="upload-zone">
+                  <div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                  <div class="upload-text">Sin documentos — subir carnet</div>
+                  <div class="upload-sub">JPG, PNG, PDF — máx. 5 MB</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- MODULE: MINISTERIO -->
+            <div class="module-content" id="mc-mt">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div>
+                  <div style="font-weight:700;font-size:15px">Ministerio de Trabajo</div>
+                  <div style="font-size:12px;color:var(--text2);margin-top:3px">Gestión laboral y contratos</div>
+                </div>
+                <span class="badge badge-amber">Pendiente</span>
+              </div>
+
+              <div class="file-type-row">
+                <div class="file-type-header">
+                  <div class="file-type-name">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+                    Contrato de Trabajo
+                  </div>
+                  <button class="btn btn-teal" style="font-size:11px;padding:5px 12px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Subir
+                  </button>
+                </div>
+                <div class="file-list">
+                  <div class="file-item">
+                    <div class="file-ext docx">DOC</div>
+                    <div>
+                      <div class="file-name">Contrato_JMamani_2022.docx</div>
+                      <div class="file-meta">Subido 15 Ene 2022 · 156 KB</div>
+                    </div>
+                    <div class="file-actions">
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="file-type-row" style="border-color: #FBBF2433;">
+                <div class="file-type-header">
+                  <div class="file-type-name" style="color:var(--amber)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                    Planilla Laboral Mensual
+                    <span class="badge badge-amber" style="margin-left:8px">Pendiente</span>
+                  </div>
+                  <button class="btn btn-primary" style="font-size:11px;padding:5px 12px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Subir Ahora
+                  </button>
+                </div>
+                <div class="upload-zone" style="border-color:#FBBF2455;background:#FBBF2408">
+                  <div class="upload-icon" style="background:#FBBF2422"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                  <div class="upload-text" style="color:var(--amber)">Planilla de Marzo 2026 pendiente</div>
+                  <div class="upload-sub">Vence en 2 días — PDF, XLS</div>
+                </div>
+              </div>
+              <div class="file-type-row">
+                <div class="file-type-header">
+                  <div class="file-type-name">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                    Certificación Laboral
+                  </div>
+                  <button class="btn btn-teal" style="font-size:11px;padding:5px 12px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Subir
+                  </button>
+                </div>
+                <div class="file-list">
+                  <div class="file-item">
+                    <div class="file-ext pdf">PDF</div>
+                    <div>
+                      <div class="file-name">Cert_Laboral_JMamani.pdf</div>
+                      <div class="file-meta">Subido 12 Mar 2026 · 204 KB</div>
+                    </div>
+                    <div class="file-actions">
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                      <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <!-- END PERSONAL DETALLE -->
+
+      <!-- ─────────── VIEW: REGISTRO PERSONAL ─────────── -->
+      <div class="view" id="view-registro_personal">
+        <div class="back-btn" onclick="showView('empresa_detalle')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+          Volver a Constructora Norte SA
+        </div>
+
+        <div class="page-header">
+          <div>
+            <div class="page-title">Registrar Nuevo Personal</div>
+            <div class="page-sub">Completa los datos del empleado. Una vez guardado podrás gestionar AFP, CAJA y Ministerio.</div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-ghost" onclick="showView('empresa_detalle')">Cancelar</button>
+            <button class="btn btn-primary" onclick="showView('personal_detalle')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="15" height="15"><polyline points="20,6 9,17 4,12"/></svg>
+              Guardar Personal
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 1: Datos personales -->
+        <div class="form-section">
+          <div class="form-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+            Datos Personales
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Nombres *</label>
+              <input type="text" placeholder="Ej. Juan Carlos">
+            </div>
+            <div class="field">
+              <label>Apellidos *</label>
+              <input type="text" placeholder="Ej. Mamani Quispe">
+            </div>
+            <div class="field">
+              <label>Cédula de Identidad *</label>
+              <input type="text" placeholder="Ej. 8234567 SC">
+            </div>
+            <div class="field">
+              <label>Fecha de Nacimiento</label>
+              <input type="date">
+            </div>
+            <div class="field">
+              <label>Género</label>
+              <select>
+                <option value="">Seleccionar...</option>
+                <option>Masculino</option>
+                <option>Femenino</option>
+                <option>No especificado</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Estado Civil</label>
+              <select>
+                <option value="">Seleccionar...</option>
+                <option>Soltero/a</option>
+                <option>Casado/a</option>
+                <option>Divorciado/a</option>
+                <option>Viudo/a</option>
+                <option>Concubinato</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Teléfono / Celular</label>
+              <input type="text" placeholder="+591 7XXXXXXX">
+            </div>
+            <div class="field">
+              <label>Correo Electrónico</label>
+              <input type="email" placeholder="correo@ejemplo.com">
+            </div>
+            <div class="field form-full">
+              <label>Dirección</label>
+              <input type="text" placeholder="Calle, número, zona, ciudad">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Datos laborales -->
+        <div class="form-section">
+          <div class="form-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+            Datos Laborales
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Empresa *</label>
+              <select>
+                <option>Constructora Norte SA</option>
+                <option>Importadora Central</option>
+                <option>TechSoft Bolivia</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Cargo / Puesto *</label>
+              <input type="text" placeholder="Ej. Ingeniero Civil">
+            </div>
+            <div class="field">
+              <label>Fecha de Ingreso *</label>
+              <input type="date">
+            </div>
+            <div class="field">
+              <label>Tipo de Contrato</label>
+              <select>
+                <option value="">Seleccionar...</option>
+                <option>Indefinido</option>
+                <option>Plazo Fijo</option>
+                <option>Por Obra</option>
+                <option>Eventual</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Salario Mensual (Bs.)</label>
+              <input type="number" placeholder="Ej. 5000">
+            </div>
+            <div class="field">
+              <label>Modalidad</label>
+              <select>
+                <option>Presencial</option>
+                <option>Remoto</option>
+                <option>Híbrido</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: AFP y CAJA -->
+        <div class="form-section">
+          <div class="form-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            Datos AFP y CAJA
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label>AFP afiliada</label>
+              <select>
+                <option value="">Seleccionar AFP...</option>
+                <option>Futuro de Bolivia</option>
+                <option>BBVA Previsión AFP</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Número de Afiliado AFP</label>
+              <input type="text" placeholder="AFP-XXXXXXXX">
+            </div>
+            <div class="field">
+              <label>Caja de Salud</label>
+              <select>
+                <option value="">Seleccionar CAJA...</option>
+                <option>Caja Nacional de Salud (CNS)</option>
+                <option>Caja Petrolera</option>
+                <option>Caja Bancaria</option>
+                <option>COSSMIL</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Número de Asegurado</label>
+              <input type="text" placeholder="CNS-XXXXXXX">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Datos adicionales -->
+        <div class="form-section">
+          <div class="form-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+            Datos Adicionales
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Nivel de Educación</label>
+              <select>
+                <option value="">Seleccionar...</option>
+                <option>Primaria</option>
+                <option>Secundaria</option>
+                <option>Técnico</option>
+                <option>Universitario</option>
+                <option>Postgrado</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Profesión / Especialidad</label>
+              <input type="text" placeholder="Ej. Ingeniería Civil">
+            </div>
+            <div class="field form-full">
+              <label>Observaciones</label>
+              <textarea rows="3" placeholder="Notas adicionales sobre el empleado..." style="resize:vertical"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:12px;padding-bottom:20px">
+          <button class="btn btn-ghost" style="min-width:120px" onclick="showView('empresa_detalle')">Cancelar</button>
+          <button class="btn btn-primary" style="min-width:160px" onclick="showView('personal_detalle')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="15" height="15"><polyline points="20,6 9,17 4,12"/></svg>
+            Guardar y continuar
+          </button>
+        </div>
+      </div>
+      <!-- END REGISTRO PERSONAL -->
+
+      <!-- ─────────── VIEW: PERSONAL LIST ─────────── -->
+      <div class="view" id="view-personal_list">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Todo el Personal</div>
+            <div class="page-sub">124 empleados en todas tus empresas</div>
+          </div>
+          <button class="btn btn-primary" onclick="showView('registro_personal')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo Personal
+          </button>
+        </div>
+        <div class="tabs" style="max-width:400px;margin-bottom:20px">
+          <div class="tab active">Todos (124)</div>
+          <div class="tab">AFP pendiente (12)</div>
+          <div class="tab">CAJA pendiente (21)</div>
+          <div class="tab">Min. pendiente (34)</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Nombre</th><th>CI</th><th>Empresa</th><th>Cargo</th><th>AFP</th><th>CAJA</th><th>Ministerio</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr onclick="showView('personal_detalle')"><td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:28px;height:28px;font-size:10px">JM</div>Juan Mamani</div></td><td>8234567</td><td><span style="color:var(--accent);font-size:12px">Const. Norte</span></td><td style="color:var(--text2)">Ing. Civil</td><td><span class="badge badge-green">OK</span></td><td><span class="badge badge-green">OK</span></td><td><span class="badge badge-amber">Pend.</span></td><td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px">Ver →</button></td></tr>
+              <tr onclick="showView('personal_detalle')"><td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:28px;height:28px;font-size:10px">ML</div>María López</div></td><td>5678901</td><td><span style="color:var(--accent);font-size:12px">Const. Norte</span></td><td style="color:var(--text2)">Contadora</td><td><span class="badge badge-green">OK</span></td><td><span class="badge badge-rose">Sin doc.</span></td><td><span class="badge badge-rose">Sin doc.</span></td><td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px">Ver →</button></td></tr>
+              <tr onclick="showView('personal_detalle')"><td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:28px;height:28px;font-size:10px">RG</div>Rodrigo García</div></td><td>6789012</td><td><span style="color:var(--teal);font-size:12px">Importadora</span></td><td style="color:var(--text2)">Gerente</td><td><span class="badge badge-green">OK</span></td><td><span class="badge badge-green">OK</span></td><td><span class="badge badge-green">OK</span></td><td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px">Ver →</button></td></tr>
+              <tr onclick="showView('personal_detalle')"><td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:28px;height:28px;font-size:10px">SV</div>Sandra Vega</div></td><td>7890123</td><td><span style="color:var(--amber);font-size:12px">Agro Beni</span></td><td style="color:var(--text2)">Agrónoma</td><td><span class="badge badge-amber">Pend.</span></td><td><span class="badge badge-amber">Pend.</span></td><td><span class="badge badge-rose">Sin doc.</span></td><td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px">Ver →</button></td></tr>
+              <tr onclick="showView('personal_detalle')"><td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:28px;height:28px;font-size:10px">CL</div>Carlos Lima</div></td><td>9012345</td><td><span style="color:var(--accent2);font-size:12px">TechSoft</span></td><td style="color:var(--text2)">Dev Senior</td><td><span class="badge badge-green">OK</span></td><td><span class="badge badge-green">OK</span></td><td><span class="badge badge-amber">Pend.</span></td><td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px">Ver →</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:16px">
+          <button class="btn btn-ghost" style="padding:6px 14px;font-size:12px">← Anterior</button>
+          <span style="font-size:12px;color:var(--text3)">Página 1 de 25</span>
+          <button class="btn btn-ghost" style="padding:6px 14px;font-size:12px">Siguiente →</button>
+        </div>
+      </div>
+      <!-- END PERSONAL LIST -->
+
+      <!-- ─────────── VIEW: MI EQUIPO ─────────── -->
+      <div class="view" id="view-equipo">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Mi Equipo</div>
+            <div class="page-sub">6 colaboradores bajo tu consultoría — gestiona cargos, empresas asignadas y accesos</div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-ghost">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="15" height="15"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="18" y2="18"/></svg>
+              Filtrar por cargo
+            </button>
+            <button class="btn btn-primary" style="background:linear-gradient(135deg,#A78BFA,#7B61FF)" onclick="showView('equipo_nuevo')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Agregar Colaborador
+            </button>
+          </div>
+        </div>
+
+        <!-- Stat strip -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;display:flex;align-items:center;gap:14px">
+            <div style="width:38px;height:38px;background:#A78BFA22;border-radius:10px;display:grid;place-items:center;color:#A78BFA">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="20" height="20"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            </div>
+            <div><div style="font-family:var(--font-head);font-size:26px;font-weight:800">6</div><div style="font-size:11px;color:var(--text3)">Colaboradores</div></div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;display:flex;align-items:center;gap:14px">
+            <div style="width:38px;height:38px;background:#34D39922;border-radius:10px;display:grid;place-items:center;color:var(--green)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="20" height="20"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+            </div>
+            <div><div style="font-family:var(--font-head);font-size:26px;font-weight:800">5</div><div style="font-size:11px;color:var(--text3)">En línea hoy</div></div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;display:flex;align-items:center;gap:14px">
+            <div style="width:38px;height:38px;background:#4F81FF22;border-radius:10px;display:grid;place-items:center;color:var(--accent)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="20" height="20"><path d="M3 21h18M3 7v14M21 7v14M6 7l6-4 6 4"/></svg>
+            </div>
+            <div><div style="font-family:var(--font-head);font-size:26px;font-weight:800">8</div><div style="font-size:11px;color:var(--text3)">Empresas cubiertas</div></div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;display:flex;align-items:center;gap:14px">
+            <div style="width:38px;height:38px;background:#FBBF2422;border-radius:10px;display:grid;place-items:center;color:var(--amber)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="20" height="20"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div><div style="font-family:var(--font-head);font-size:26px;font-weight:800">6</div><div style="font-size:11px;color:var(--text3)">Accesos activos</div></div>
+          </div>
+        </div>
+
+        <!-- Team cards grid -->
+        <div class="team-grid">
+
+          <!-- Card 1: Coordinador General -->
+          <div class="team-card" onclick="showView('equipo_miembro')">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+              <div class="team-avatar" style="background:linear-gradient(135deg,#A78BFA44,#7B61FF44);border:2px solid #A78BFA33;margin-bottom:0">
+                LV
+                <div class="online-dot on"></div>
+              </div>
+              <span class="badge badge-green" style="font-size:10px">● En línea</span>
+            </div>
+            <div class="team-name">Laura Vásquez</div>
+            <div class="team-email">l.vasquez@laboraconsult.bo</div>
+            <div style="margin-top:8px"><span class="role-pill role-coordinador">Coordinadora General</span></div>
+            <div class="team-card-footer">
+              <div>
+                <div style="font-size:10px;color:var(--text3);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Empresas asignadas</div>
+                <div class="team-companies">
+                  <span class="company-chip">Const. Norte</span>
+                  <span class="company-chip">TechSoft</span>
+                  <span class="company-chip">+4</span>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Acceso</div>
+                <span class="badge badge-green" style="font-size:10px;padding:2px 8px">Activo</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Analista AFP -->
+          <div class="team-card" onclick="showView('equipo_miembro')">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+              <div class="team-avatar" style="background:linear-gradient(135deg,#4F81FF44,#3a6ee844);border:2px solid #4F81FF33;margin-bottom:0">
+                RM
+                <div class="online-dot on"></div>
+              </div>
+              <span class="badge badge-green" style="font-size:10px">● En línea</span>
+            </div>
+            <div class="team-name">Ricardo Mendoza</div>
+            <div class="team-email">r.mendoza@laboraconsult.bo</div>
+            <div style="margin-top:8px"><span class="role-pill role-afp">Analista AFP</span></div>
+            <div class="team-card-footer">
+              <div>
+                <div style="font-size:10px;color:var(--text3);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Empresas asignadas</div>
+                <div class="team-companies">
+                  <span class="company-chip">Agro Beni</span>
+                  <span class="company-chip">Min. Cerro</span>
+                  <span class="company-chip">+1</span>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Acceso</div>
+                <span class="badge badge-green" style="font-size:10px;padding:2px 8px">Activo</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Analista CAJA -->
+          <div class="team-card" onclick="showView('equipo_miembro')">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+              <div class="team-avatar" style="background:linear-gradient(135deg,#2DD4BF44,#06b6a844);border:2px solid #2DD4BF33;margin-bottom:0">
+                PQ
+                <div class="online-dot on"></div>
+              </div>
+              <span class="badge badge-green" style="font-size:10px">● En línea</span>
+            </div>
+            <div class="team-name">Patricia Quispe</div>
+            <div class="team-email">p.quispe@laboraconsult.bo</div>
+            <div style="margin-top:8px"><span class="role-pill role-caja">Analista CAJA</span></div>
+            <div class="team-card-footer">
+              <div>
+                <div style="font-size:10px;color:var(--text3);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Empresas asignadas</div>
+                <div class="team-companies">
+                  <span class="company-chip">Importadora</span>
+                  <span class="company-chip">Farmacia</span>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Acceso</div>
+                <span class="badge badge-green" style="font-size:10px;padding:2px 8px">Activo</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 4: Analista Ministerio -->
+          <div class="team-card" onclick="showView('equipo_miembro')">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+              <div class="team-avatar" style="background:linear-gradient(135deg,#FBBF2444,#F59E0B44);border:2px solid #FBBF2433;margin-bottom:0">
+                JT
+                <div class="online-dot off"></div>
+              </div>
+              <span class="badge badge-amber" style="font-size:10px">● Inactivo</span>
+            </div>
+            <div class="team-name">Jorge Torrico</div>
+            <div class="team-email">j.torrico@laboraconsult.bo</div>
+            <div style="margin-top:8px"><span class="role-pill role-ministerio">Analista Ministerio</span></div>
+            <div class="team-card-footer">
+              <div>
+                <div style="font-size:10px;color:var(--text3);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Empresas asignadas</div>
+                <div class="team-companies">
+                  <span class="company-chip">Const. Norte</span>
+                  <span class="company-chip">Agro Beni</span>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Acceso</div>
+                <span class="badge badge-green" style="font-size:10px;padding:2px 8px">Activo</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 5: Asistente -->
+          <div class="team-card" onclick="showView('equipo_miembro')">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+              <div class="team-avatar" style="background:linear-gradient(135deg,#34D39944,#059F6B44);border:2px solid #34D39933;margin-bottom:0">
+                AM
+                <div class="online-dot on"></div>
+              </div>
+              <span class="badge badge-green" style="font-size:10px">● En línea</span>
+            </div>
+            <div class="team-name">Ana Miranda</div>
+            <div class="team-email">a.miranda@laboraconsult.bo</div>
+            <div style="margin-top:8px"><span class="role-pill role-asistente">Asistente Administrativo</span></div>
+            <div class="team-card-footer">
+              <div>
+                <div style="font-size:10px;color:var(--text3);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Empresas asignadas</div>
+                <div class="team-companies">
+                  <span class="company-chip">TechSoft</span>
+                  <span class="company-chip">Farmacia</span>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Acceso</div>
+                <span class="badge badge-green" style="font-size:10px;padding:2px 8px">Activo</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 6: Supervisor - acceso suspendido -->
+          <div class="team-card" onclick="showView('equipo_miembro')">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+              <div class="team-avatar" style="background:linear-gradient(135deg,#FB718544,#F4366444);border:2px solid #FB718533;margin-bottom:0">
+                DH
+                <div class="online-dot off"></div>
+              </div>
+              <span class="badge badge-rose" style="font-size:10px">● Suspendido</span>
+            </div>
+            <div class="team-name">Diego Heredia</div>
+            <div class="team-email">d.heredia@laboraconsult.bo</div>
+            <div style="margin-top:8px"><span class="role-pill role-supervisor">Supervisor de Gestión</span></div>
+            <div class="team-card-footer">
+              <div>
+                <div style="font-size:10px;color:var(--text3);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Empresas asignadas</div>
+                <div class="team-companies">
+                  <span class="company-chip" style="opacity:.5">Importadora</span>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Acceso</div>
+                <span class="badge badge-rose" style="font-size:10px;padding:2px 8px">Suspendido</span>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- .team-grid -->
+      </div>
+      <!-- END MI EQUIPO -->
+
+      <!-- ─────────── VIEW: DETALLE MIEMBRO ─────────── -->
+      <div class="view" id="view-equipo_miembro">
+        <div class="back-btn" onclick="showView('equipo')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+          Volver a Mi Equipo
+        </div>
+
+        <div class="team-detail-grid">
+
+          <!-- LEFT COLUMN: perfil + acceso + empresas -->
+          <div style="display:flex;flex-direction:column;gap:16px">
+
+            <!-- Profile card -->
+            <div class="personal-card">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+                <span class="badge badge-green">● En línea</span>
+              </div>
+              <div style="text-align:center">
+                <div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#A78BFA44,#7B61FF44);border:3px solid #A78BFA44;display:grid;place-items:center;font-family:var(--font-head);font-weight:800;font-size:26px;margin:0 auto 12px;position:relative">
+                  LV
+                  <div style="position:absolute;bottom:2px;right:2px;width:14px;height:14px;border-radius:50%;background:var(--green);border:2px solid var(--surface)"></div>
+                </div>
+                <div class="personal-name">Laura Vásquez</div>
+                <div class="personal-ci">l.vasquez@laboraconsult.bo</div>
+                <div style="margin-top:10px;display:flex;justify-content:center"><span class="role-pill role-coordinador">Coordinadora General</span></div>
+              </div>
+
+              <div style="margin-top:18px">
+                <div class="info-row"><span class="info-key">CI</span><span class="info-val">7654321 SC</span></div>
+                <div class="info-row"><span class="info-key">Teléfono</span><span class="info-val">+591 73456789</span></div>
+                <div class="info-row"><span class="info-key">Ingresó</span><span class="info-val">10 Feb 2024</span></div>
+                <div class="info-row"><span class="info-key">Cargo</span><span class="info-val">Coordinadora</span></div>
+                <div class="info-row"><span class="info-key">Último acceso</span><span class="info-val" style="color:var(--green)">Hace 5 min</span></div>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:16px">
+                <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:12px" onclick="showView('equipo_nuevo')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Editar
+                </button>
+                <button class="btn" style="flex:1;justify-content:center;font-size:12px;background:#FB718522;color:var(--rose);border:1px solid #FB718533">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="13" height="13"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  Suspender
+                </button>
+              </div>
+            </div>
+
+            <!-- Access / Credentials -->
+            <div class="access-card">
+              <div class="access-status">
+                <div class="access-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <div>
+                  <div class="access-label">Acceso al Sistema</div>
+                  <div class="access-value">Activo y verificado</div>
+                </div>
+              </div>
+              <div class="credential-row">
+                <span class="credential-key">Usuario</span>
+                <span class="credential-val">l.vasquez</span>
+              </div>
+              <div class="credential-row">
+                <span class="credential-key">Contraseña</span>
+                <span class="credential-val">••••••••••</span>
+              </div>
+              <div class="credential-row">
+                <span class="credential-key">Rol del sistema</span>
+                <span class="credential-val" style="color:#A78BFA;font-family:var(--font-body)">Coordinador</span>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px">
+                <button class="btn btn-ghost" style="flex:1;font-size:11px;justify-content:center;padding:7px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="13" height="13"><path d="M21 2H3v16h5v4l4-4h5l4-4V2z"/></svg>
+                  Enviar credenciales
+                </button>
+                <button class="btn btn-ghost" style="flex:1;font-size:11px;justify-content:center;padding:7px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="13" height="13"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                  Reset contraseña
+                </button>
+              </div>
+            </div>
+
+            <!-- Empresas asignadas (left panel summary) -->
+            <div class="personal-card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                <div class="section-title" style="font-size:13px">Empresas Asignadas</div>
+                <span style="font-size:11px;color:var(--text3)">6 de 8</span>
+              </div>
+              <div class="assign-row">
+                <div class="assign-logo">CN</div>
+                <div class="assign-info"><div class="assign-name">Constructora Norte</div><div class="assign-detail">28 empleados</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="assign-row">
+                <div class="assign-logo" style="color:var(--accent2)">TS</div>
+                <div class="assign-info"><div class="assign-name">TechSoft Bolivia</div><div class="assign-detail">19 empleados</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="assign-row">
+                <div class="assign-logo" style="color:var(--teal)">IC</div>
+                <div class="assign-info"><div class="assign-name">Importadora Central</div><div class="assign-detail">14 empleados</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="assign-row">
+                <div class="assign-logo" style="color:var(--amber)">AB</div>
+                <div class="assign-info"><div class="assign-name">Agro Beni Ltda.</div><div class="assign-detail">41 empleados</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="assign-row">
+                <div class="assign-logo" style="color:var(--rose)">MC</div>
+                <div class="assign-info"><div class="assign-name">Minería del Cerro</div><div class="assign-detail">32 empleados</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="assign-row">
+                <div class="assign-logo" style="color:var(--green)">FS</div>
+                <div class="assign-info"><div class="assign-name">Farmacia Salud</div><div class="assign-detail">9 empleados</div></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+              </div>
+            </div>
+
+          </div><!-- left col -->
+
+          <!-- RIGHT COLUMN: permissions + activity -->
+          <div>
+
+            <!-- Inner tabs -->
+            <div class="inner-tabs">
+              <div class="inner-tab active" onclick="switchInnerTab(this,'perm')">Permisos del Sistema</div>
+              <div class="inner-tab" onclick="switchInnerTab(this,'act')">Actividad Reciente</div>
+              <div class="inner-tab" onclick="switchInnerTab(this,'gestiones')">Gestiones Realizadas</div>
+            </div>
+
+            <!-- PERM panel -->
+            <div id="itab-perm" class="module-content active">
+              <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:8px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14" style="color:#A78BFA"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Los permisos aplican <strong style="color:var(--text)">solo sobre las empresas asignadas</strong>. Activa o desactiva por módulo.
+              </div>
+
+              <div class="table-wrap">
+                <table class="perm-table">
+                  <thead>
+                    <tr>
+                      <th style="width:42%">Permiso</th>
+                      <th>Módulo</th>
+                      <th style="text-align:center">AFP</th>
+                      <th style="text-align:center">CAJA</th>
+                      <th style="text-align:center">Ministerio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="color:var(--text);font-weight:500">
+                        <div>Ver empresa y personal</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px">Acceso de solo lectura</div>
+                      </td>
+                      <td><span class="badge badge-blue" style="font-size:10px">General</span></td>
+                      <td style="text-align:center"><div class="toggle on" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                      <td style="text-align:center"><div class="toggle on teal" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                      <td style="text-align:center"><div class="toggle on amber" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                    </tr>
+                    <tr>
+                      <td style="color:var(--text);font-weight:500">
+                        <div>Registrar personal</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px">Crear fichas de empleados</div>
+                      </td>
+                      <td><span class="badge badge-blue" style="font-size:10px">General</span></td>
+                      <td style="text-align:center" colspan="3"><div class="toggle on" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                    </tr>
+                    <tr>
+                      <td style="color:var(--text);font-weight:500">
+                        <div>Editar datos de personal</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px">Modificar fichas existentes</div>
+                      </td>
+                      <td><span class="badge badge-blue" style="font-size:10px">General</span></td>
+                      <td style="text-align:center" colspan="3"><div class="toggle on" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                    </tr>
+                    <tr>
+                      <td style="color:var(--text);font-weight:500">
+                        <div>Subir documentos</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px">Cargar archivos al sistema</div>
+                      </td>
+                      <td><span class="badge" style="font-size:10px;background:#A78BFA20;color:#A78BFA">Documentos</span></td>
+                      <td style="text-align:center"><div class="toggle on" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                      <td style="text-align:center"><div class="toggle on teal" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                      <td style="text-align:center"><div class="toggle on amber" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                    </tr>
+                    <tr>
+                      <td style="color:var(--text);font-weight:500">
+                        <div>Eliminar documentos</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px">Borrar archivos cargados</div>
+                      </td>
+                      <td><span class="badge" style="font-size:10px;background:#A78BFA20;color:#A78BFA">Documentos</span></td>
+                      <td style="text-align:center"><div class="toggle on" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                      <td style="text-align:center"><div class="toggle" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                      <td style="text-align:center"><div class="toggle" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                    </tr>
+                    <tr>
+                      <td style="color:var(--text);font-weight:500">
+                        <div>Gestionar AFP</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px">Registrar y actualizar datos AFP</div>
+                      </td>
+                      <td><span class="badge badge-blue" style="font-size:10px">AFP</span></td>
+                      <td style="text-align:center"><div class="toggle on" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                      <td style="text-align:center">—</td>
+                      <td style="text-align:center">—</td>
+                    </tr>
+                    <tr>
+                      <td style="color:var(--text);font-weight:500">
+                        <div>Gestionar CAJA</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px">Registrar y actualizar datos CAJA</div>
+                      </td>
+                      <td><span class="badge badge-teal" style="font-size:10px">CAJA</span></td>
+                      <td style="text-align:center">—</td>
+                      <td style="text-align:center"><div class="toggle on teal" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                      <td style="text-align:center">—</td>
+                    </tr>
+                    <tr>
+                      <td style="color:var(--text);font-weight:500">
+                        <div>Gestionar Ministerio</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px">Planillas y certificaciones laborales</div>
+                      </td>
+                      <td><span class="badge badge-amber" style="font-size:10px">Ministerio</span></td>
+                      <td style="text-align:center">—</td>
+                      <td style="text-align:center">—</td>
+                      <td style="text-align:center"><div class="toggle on amber" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                    </tr>
+                    <tr>
+                      <td style="color:var(--text);font-weight:500">
+                        <div>Exportar reportes</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px">Descargar informes y resúmenes</div>
+                      </td>
+                      <td><span class="badge" style="font-size:10px;background:#34D39920;color:var(--green)">Reportes</span></td>
+                      <td style="text-align:center"><div class="toggle on" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                      <td style="text-align:center"><div class="toggle on teal" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                      <td style="text-align:center"><div class="toggle" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                    </tr>
+                    <tr>
+                      <td style="color:var(--text);font-weight:500">
+                        <div>Invitar acceso empresa</div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px">Generar credenciales para empresas</div>
+                      </td>
+                      <td><span class="badge" style="font-size:10px;background:#A78BFA20;color:#A78BFA">Avanzado</span></td>
+                      <td style="text-align:center" colspan="3"><div class="toggle" style="margin:auto" onclick="this.classList.toggle('on')"></div></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+                <button class="btn btn-ghost">Restablecer defaults</button>
+                <button class="btn btn-primary" style="background:linear-gradient(135deg,#A78BFA,#7B61FF)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="15" height="15"><polyline points="20,6 9,17 4,12"/></svg>
+                  Guardar permisos
+                </button>
+              </div>
+            </div>
+
+            <!-- ACTIVITY panel -->
+            <div id="itab-act" class="module-content">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px">
+                <div class="activity-item">
+                  <div class="activity-dot" style="background:#A78BFA"></div>
+                  <div class="activity-body">
+                    <div class="activity-text">Subió <strong>AFP_Planilla_Marzo2026.pdf</strong> en Constructora Norte — Juan Mamani</div>
+                    <div class="activity-time">Hoy, 09:45 am</div>
+                  </div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-dot" style="background:var(--teal)"></div>
+                  <div class="activity-body">
+                    <div class="activity-text">Registró a <strong>Carlos Ríos</strong> en TechSoft Bolivia</div>
+                    <div class="activity-time">Hoy, 08:22 am</div>
+                  </div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-dot" style="background:var(--accent)"></div>
+                  <div class="activity-body">
+                    <div class="activity-text">Actualizó CAJA de <strong>María López</strong> — Constructora Norte</div>
+                    <div class="activity-time">Ayer, 04:11 pm</div>
+                  </div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-dot" style="background:var(--amber)"></div>
+                  <div class="activity-body">
+                    <div class="activity-text">Descargó reporte de cobertura AFP — <strong>Agro Beni Ltda.</strong></div>
+                    <div class="activity-time">Ayer, 02:50 pm</div>
+                  </div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-dot" style="background:var(--green)"></div>
+                  <div class="activity-body">
+                    <div class="activity-text">Completó planilla Ministerio de <strong>Ana Quispe</strong> — Constructora Norte</div>
+                    <div class="activity-time">28 Mar, 11:30 am</div>
+                  </div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-dot" style="background:var(--accent)"></div>
+                  <div class="activity-body">
+                    <div class="activity-text">Editó datos laborales de <strong>Pedro Cruz</strong> — Constructora Norte</div>
+                    <div class="activity-time">27 Mar, 09:05 am</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- GESTIONES panel -->
+            <div id="itab-gestiones" class="module-content">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px">
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;text-align:center">
+                  <div style="font-family:var(--font-head);font-size:32px;font-weight:800;color:var(--accent)">47</div>
+                  <div style="font-size:11px;color:var(--text3);margin-top:4px;font-weight:600;text-transform:uppercase">AFP gestionados</div>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;text-align:center">
+                  <div style="font-family:var(--font-head);font-size:32px;font-weight:800;color:var(--teal)">38</div>
+                  <div style="font-size:11px;color:var(--text3);margin-top:4px;font-weight:600;text-transform:uppercase">CAJA gestionados</div>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;text-align:center">
+                  <div style="font-family:var(--font-head);font-size:32px;font-weight:800;color:var(--amber)">29</div>
+                  <div style="font-size:11px;color:var(--text3);margin-top:4px;font-weight:600;text-transform:uppercase">Min. gestionados</div>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Empleado</th><th>Empresa</th><th>Gestión</th><th>Tipo doc.</th><th>Fecha</th></tr></thead>
+                  <tbody>
+                    <tr><td>Juan Mamani</td><td style="color:var(--accent)">Const. Norte</td><td><span class="badge badge-blue">AFP</span></td><td style="color:var(--text2)">Planilla Aportes</td><td style="color:var(--text3)">28 Mar 2026</td></tr>
+                    <tr><td>Carlos Ríos</td><td style="color:var(--accent2)">TechSoft</td><td><span class="badge badge-blue">AFP</span></td><td style="color:var(--text2)">Ficha Afiliación</td><td style="color:var(--text3)">28 Mar 2026</td></tr>
+                    <tr><td>María López</td><td style="color:var(--accent)">Const. Norte</td><td><span class="badge badge-teal">CAJA</span></td><td style="color:var(--text2)">Formulario CNS</td><td style="color:var(--text3)">27 Mar 2026</td></tr>
+                    <tr><td>Ana Quispe</td><td style="color:var(--accent)">Const. Norte</td><td><span class="badge badge-amber">Ministerio</span></td><td style="color:var(--text2)">Planilla Laboral</td><td style="color:var(--text3)">28 Mar 2026</td></tr>
+                    <tr><td>Pedro Cruz</td><td style="color:var(--accent)">Const. Norte</td><td><span class="badge badge-teal">CAJA</span></td><td style="color:var(--text2)">Póliza Mensual</td><td style="color:var(--text3)">27 Mar 2026</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div><!-- right col -->
+        </div><!-- team-detail-grid -->
+      </div>
+      <!-- END EQUIPO MIEMBRO -->
+
+      <!-- ─────────── VIEW: NUEVO COLABORADOR ─────────── -->
+      <div class="view" id="view-equipo_nuevo">
+        <div class="back-btn" onclick="showView('equipo')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+          Volver a Mi Equipo
+        </div>
+
+        <div class="page-header">
+          <div>
+            <div class="page-title">Agregar Colaborador</div>
+            <div class="page-sub">Define los datos, cargo, permisos iniciales y empresas asignadas. El colaborador recibirá sus credenciales por correo.</div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-ghost" onclick="showView('equipo')">Cancelar</button>
+            <button class="btn btn-primary" style="background:linear-gradient(135deg,#A78BFA,#7B61FF)" onclick="showView('equipo_miembro')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="15" height="15"><polyline points="20,6 9,17 4,12"/></svg>
+              Crear y enviar acceso
+            </button>
+          </div>
+        </div>
+
+        <!-- Step indicator -->
+        <div style="display:flex;align-items:center;gap:0;margin-bottom:28px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 28px;">
+          <div style="display:flex;align-items:center;gap:10px;flex:1">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:grid;place-items:center;font-family:var(--font-head);font-weight:800;font-size:12px;color:#fff">1</div>
+            <div><div style="font-size:12px;font-weight:700">Datos personales</div><div style="font-size:10px;color:var(--green)">Completo</div></div>
+          </div>
+          <div style="flex:1;height:2px;background:linear-gradient(90deg,var(--accent),#A78BFA);border-radius:1px;margin:0 12px"></div>
+          <div style="display:flex;align-items:center;gap:10px;flex:1">
+            <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#A78BFA,#7B61FF);display:grid;place-items:center;font-family:var(--font-head);font-weight:800;font-size:12px;color:#fff">2</div>
+            <div><div style="font-size:12px;font-weight:700">Cargo y permisos</div><div style="font-size:10px;color:var(--amber)">En curso</div></div>
+          </div>
+          <div style="flex:1;height:2px;background:var(--border2);border-radius:1px;margin:0 12px"></div>
+          <div style="display:flex;align-items:center;gap:10px;flex:1">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);border:2px solid var(--border2);display:grid;place-items:center;font-family:var(--font-head);font-weight:800;font-size:12px;color:var(--text3)">3</div>
+            <div><div style="font-size:12px;font-weight:700;color:var(--text3)">Empresas asignadas</div><div style="font-size:10px;color:var(--text3)">Pendiente</div></div>
+          </div>
+          <div style="flex:1;height:2px;background:var(--border2);border-radius:1px;margin:0 12px"></div>
+          <div style="display:flex;align-items:center;gap:10px;flex:1">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);border:2px solid var(--border2);display:grid;place-items:center;font-family:var(--font-head);font-weight:800;font-size:12px;color:var(--text3)">4</div>
+            <div><div style="font-size:12px;font-weight:700;color:var(--text3)">Acceso al sistema</div><div style="font-size:10px;color:var(--text3)">Pendiente</div></div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 360px;gap:20px">
+          <!-- LEFT: form sections -->
+          <div>
+            <!-- Datos personales -->
+            <div class="form-section">
+              <div class="form-section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+                Datos Personales del Colaborador
+              </div>
+              <div class="form-grid">
+                <div class="field"><label>Nombres *</label><input type="text" placeholder="Ej. Laura Patricia"></div>
+                <div class="field"><label>Apellidos *</label><input type="text" placeholder="Ej. Vásquez Salinas"></div>
+                <div class="field"><label>Cédula de Identidad</label><input type="text" placeholder="Ej. 7654321 SC"></div>
+                <div class="field"><label>Teléfono</label><input type="text" placeholder="+591 7XXXXXXX"></div>
+                <div class="field form-full"><label>Correo Electrónico (usuario del sistema) *</label><input type="email" placeholder="nombre@laboraconsult.bo"></div>
+              </div>
+            </div>
+
+            <!-- Cargo y rol -->
+            <div class="form-section">
+              <div class="form-section-title" style="color:#A78BFA">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                Cargo y Rol en el Sistema
+              </div>
+
+              <!-- Role selector visual -->
+              <div style="margin-bottom:18px">
+                <label style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:10px">Cargo *</label>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+                  <div class="role-option active-role" onclick="selectRole(this)" style="border:2px solid #A78BFA;background:#A78BFA12;border-radius:10px;padding:14px;cursor:pointer;text-align:center;transition:all .2s">
+                    <div style="font-size:18px;margin-bottom:6px">🏅</div>
+                    <div style="font-size:12px;font-weight:700;color:#A78BFA">Coordinador General</div>
+                    <div style="font-size:10px;color:var(--text3);margin-top:3px">Acceso completo</div>
+                  </div>
+                  <div class="role-option" onclick="selectRole(this)" style="border:2px solid var(--border);background:var(--surface2);border-radius:10px;padding:14px;cursor:pointer;text-align:center;transition:all .2s">
+                    <div style="font-size:18px;margin-bottom:6px">📊</div>
+                    <div style="font-size:12px;font-weight:700;color:var(--accent)">Analista AFP</div>
+                    <div style="font-size:10px;color:var(--text3);margin-top:3px">Módulo AFP</div>
+                  </div>
+                  <div class="role-option" onclick="selectRole(this)" style="border:2px solid var(--border);background:var(--surface2);border-radius:10px;padding:14px;cursor:pointer;text-align:center;transition:all .2s">
+                    <div style="font-size:18px;margin-bottom:6px">🏥</div>
+                    <div style="font-size:12px;font-weight:700;color:var(--teal)">Analista CAJA</div>
+                    <div style="font-size:10px;color:var(--text3);margin-top:3px">Módulo CAJA</div>
+                  </div>
+                  <div class="role-option" onclick="selectRole(this)" style="border:2px solid var(--border);background:var(--surface2);border-radius:10px;padding:14px;cursor:pointer;text-align:center;transition:all .2s">
+                    <div style="font-size:18px;margin-bottom:6px">⚖️</div>
+                    <div style="font-size:12px;font-weight:700;color:var(--amber)">Analista Ministerio</div>
+                    <div style="font-size:10px;color:var(--text3);margin-top:3px">Módulo Min. Trabajo</div>
+                  </div>
+                  <div class="role-option" onclick="selectRole(this)" style="border:2px solid var(--border);background:var(--surface2);border-radius:10px;padding:14px;cursor:pointer;text-align:center;transition:all .2s">
+                    <div style="font-size:18px;margin-bottom:6px">📋</div>
+                    <div style="font-size:12px;font-weight:700;color:var(--green)">Asistente Administrativo</div>
+                    <div style="font-size:10px;color:var(--text3);margin-top:3px">Solo lectura + carga</div>
+                  </div>
+                  <div class="role-option" onclick="selectRole(this)" style="border:2px solid var(--border);background:var(--surface2);border-radius:10px;padding:14px;cursor:pointer;text-align:center;transition:all .2s">
+                    <div style="font-size:18px;margin-bottom:6px">🔍</div>
+                    <div style="font-size:12px;font-weight:700;color:var(--rose)">Supervisor de Gestión</div>
+                    <div style="font-size:10px;color:var(--text3);margin-top:3px">Supervisión y reportes</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-grid">
+                <div class="field"><label>Fecha de ingreso</label><input type="date"></div>
+                <div class="field"><label>Observaciones</label><input type="text" placeholder="Notas adicionales..."></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: empresas + acceso preview -->
+          <div style="display:flex;flex-direction:column;gap:16px">
+
+            <!-- Empresas a asignar -->
+            <div class="form-section" style="flex:1">
+              <div class="form-section-title" style="color:var(--teal)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M3 7v14M21 7v14M6 7l6-4 6 4"/></svg>
+                Empresas a asignar
+              </div>
+              <div style="font-size:12px;color:var(--text3);margin-bottom:14px">El colaborador solo verá y gestionará las empresas que actives aquí.</div>
+              <div class="assign-row">
+                <div class="assign-logo">CN</div>
+                <div class="assign-info"><div class="assign-name">Constructora Norte</div><div class="assign-detail">28 empleados</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="assign-row">
+                <div class="assign-logo" style="color:var(--teal)">IC</div>
+                <div class="assign-info"><div class="assign-name">Importadora Central</div><div class="assign-detail">14 empleados</div></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="assign-row">
+                <div class="assign-logo" style="color:var(--amber)">AB</div>
+                <div class="assign-info"><div class="assign-name">Agro Beni Ltda.</div><div class="assign-detail">41 empleados</div></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="assign-row">
+                <div class="assign-logo" style="color:var(--accent2)">TS</div>
+                <div class="assign-info"><div class="assign-name">TechSoft Bolivia</div><div class="assign-detail">19 empleados</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="assign-row">
+                <div class="assign-logo" style="color:var(--rose)">MC</div>
+                <div class="assign-info"><div class="assign-name">Minería del Cerro</div><div class="assign-detail">32 empleados</div></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="assign-row">
+                <div class="assign-logo" style="color:var(--green)">FS</div>
+                <div class="assign-info"><div class="assign-name">Farmacia Salud</div><div class="assign-detail">9 empleados</div></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+              </div>
+            </div>
+
+            <!-- Acceso preview -->
+            <div class="access-card">
+              <div style="font-size:12px;font-weight:700;color:#A78BFA;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">Vista previa de acceso</div>
+              <div class="credential-row"><span class="credential-key">Usuario</span><span class="credential-val" style="color:var(--text2)">l.vasquez</span></div>
+              <div class="credential-row"><span class="credential-key">Contraseña inicial</span><span class="credential-val">Auto-generada</span></div>
+              <div class="credential-row"><span class="credential-key">Rol</span><span class="credential-val" style="color:#A78BFA;font-family:var(--font-body)">Coordinador</span></div>
+              <div class="credential-row"><span class="credential-key">Notificación</span><span class="credential-val" style="color:var(--green);font-family:var(--font-body)">✓ Por correo</span></div>
+              <div style="margin-top:14px;padding:10px;background:#A78BFA11;border-radius:8px;font-size:11px;color:var(--text2);line-height:1.6">
+                El colaborador recibirá un correo con su usuario, contraseña temporal y enlace de activación.
+              </div>
+            </div>
+
+          </div>
+        </div><!-- grid -->
+      </div>
+      <!-- END NUEVO COLABORADOR -->
+
+    </div><!-- .content -->
+  </main>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  const navItems = document.querySelectorAll('.nav-item');
+
+  function showView(id) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const el = document.getElementById('view-' + id);
+    if (el) el.classList.add('active');
+
+    // Breadcrumb
+    const labels = {
+      dashboard:       ['Consultor', 'Dashboard'],
+      empresas:        ['Consultor', 'Mis Empresas'],
+      empresa_detalle: ['Empresas', 'Constructora Norte SA'],
+      personal_detalle:['Constructora Norte SA', 'Juan Mamani'],
+      registro_personal:['Constructora Norte SA', 'Nuevo Personal'],
+      personal_list:   ['Consultor', 'Todo el Personal'],
+      equipo:          ['Consultor', 'Mi Equipo'],
+      equipo_miembro:  ['Mi Equipo', 'Laura Vásquez'],
+      equipo_nuevo:    ['Mi Equipo', 'Agregar Colaborador'],
+    };
+    const [parent, current] = labels[id] || ['Consultor', id];
+    document.getElementById('breadcrumb').innerHTML =
+      `<span>${parent}</span><span class="sep">›</span><span class="current">${current}</span>`;
+
+    // active nav — map view id → nav-item index
+    navItems.forEach(n => n.classList.remove('active'));
+    const map = {
+      dashboard:0, empresas:1, empresa_detalle:1,
+      personal_list:2, personal_detalle:2, registro_personal:2,
+      equipo:3, equipo_miembro:3, equipo_nuevo:3,
+    };
+    if (map[id] !== undefined) navItems[map[id]]?.classList.add('active');
+  }
+
+  function switchModule(el, id) {
+    document.querySelectorAll('.module-tab').forEach(t => { t.classList.remove('active','teal','amber'); });
+    document.querySelectorAll('.module-content').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    if (id === 'caja') el.classList.add('teal');
+    if (id === 'mt')   el.classList.add('amber');
+    document.getElementById('mc-' + id).classList.add('active');
+  }
+
+  function switchInnerTab(el, id) {
+    document.querySelectorAll('.inner-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    ['perm','act','gestiones'].forEach(k => {
+      const c = document.getElementById('itab-' + k);
+      if (c) c.classList.remove('active');
+    });
+    const target = document.getElementById('itab-' + id);
+    if (target) target.classList.add('active');
+  }
+
+  function selectRole(el) {
+    document.querySelectorAll('.role-option').forEach(r => {
+      r.style.border = '2px solid var(--border)';
+      r.style.background = 'var(--surface2)';
+    });
+    el.style.border = '2px solid #A78BFA';
+    el.style.background = '#A78BFA12';
+  }
+</script>
+</body>
+</html>
