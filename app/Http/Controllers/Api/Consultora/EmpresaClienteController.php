@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Consultora;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Models\Alerta;
+use App\Models\Colaborador;
 use App\Models\EmpresaCliente;
 use App\Models\Usuario;
 use Illuminate\Http\JsonResponse;
@@ -139,6 +141,62 @@ class EmpresaClienteController extends ApiController
         return $this->ok($emp, 'Empresa cliente creada', 201);
     }
 
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $cid = $this->consultoraId($request);
+        if (! $cid) {
+            return $this->fail('Sin consultora.', 403);
+        }
+
+        $emp = EmpresaCliente::query()->where('consultora_id', $cid)->with('usuario')->find($id);
+        if (! $emp) {
+            return $this->fail('No encontrada', 404);
+        }
+
+        $data = $request->validate([
+            'nombre' => ['sometimes', 'string', 'max:200'],
+            'nit' => ['sometimes', 'string', 'max:30'],
+            'razon_social' => ['nullable', 'string', 'max:200'],
+            'ciudad' => ['nullable', 'string', 'max:100'],
+            'departamento' => ['nullable', 'string', 'max:100'],
+            'direccion' => ['nullable', 'string'],
+            'telefono' => ['nullable', 'string', 'max:20'],
+            'correo_empresa' => ['nullable', 'email', 'max:150'],
+            'actividad_economica' => ['nullable', 'string', 'max:200'],
+            'matricula_comercio' => ['nullable', 'string', 'max:50'],
+            'rep_legal_nombres' => ['nullable', 'string', 'max:100'],
+            'rep_legal_apellidos' => ['nullable', 'string', 'max:100'],
+            'rep_legal_ci' => ['nullable', 'string', 'max:20'],
+            'observaciones' => ['nullable', 'string'],
+        ]);
+
+        if ($data === []) {
+            return $this->fail('No hay datos para actualizar.', 422);
+        }
+
+        if (isset($data['nit'])) {
+            $dup = EmpresaCliente::query()
+                ->where('consultora_id', $cid)
+                ->where('nit', $data['nit'])
+                ->where('id', '!=', $emp->id)
+                ->exists();
+            if ($dup) {
+                return $this->fail('NIT ya registrado para esta consultora.', 422);
+            }
+        }
+
+        $emp->fill($data);
+        $emp->save();
+
+        $fresh = $emp->fresh()->load('usuario');
+        $row = $fresh->toArray();
+        $u = $fresh->usuario;
+        $row['acceso_portal_habilitado'] = $fresh->usuario_id && $u && $u->estado !== 'inactivo';
+        $row['usuario_estado'] = $u?->estado;
+
+        return $this->ok($row, 'Empresa actualizada');
+    }
+
     public function generarAcceso(Request $request, int $id): JsonResponse
     {
         $cid = $this->consultoraId($request);
@@ -265,14 +323,51 @@ class EmpresaClienteController extends ApiController
             'colaborador_ids.*' => ['integer'],
         ]);
 
+        $validIds = Colaborador::query()
+            ->where('consultora_id', $e->id)
+            ->whereIn('id', $data['colaborador_ids'])
+            ->pluck('id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+
+        $existingAssigned = $emp->colaboradores()
+            ->wherePivot('activo', true)
+            ->pluck('colaboradores.id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+
         $sync = [];
-        foreach ($data['colaborador_ids'] as $colId) {
+        foreach ($validIds as $colId) {
             $sync[$colId] = [
                 'activo' => true,
                 'asignado_por' => $e->id,
             ];
         }
         $emp->colaboradores()->sync($sync);
+
+        $newAssigned = array_values(array_diff($validIds, $existingAssigned));
+        foreach ($newAssigned as $colId) {
+            $alreadyNotified = Alerta::query()
+                ->where('consultora_id', $e->id)
+                ->where('empresa_id', $emp->id)
+                ->where('colaborador_asignado', $colId)
+                ->where('modulo', 'asignacion_empresa')
+                ->where('resuelta', false)
+                ->exists();
+
+            if (! $alreadyNotified) {
+                Alerta::create([
+                    'consultora_id' => $e->id,
+                    'empresa_id' => $emp->id,
+                    'colaborador_asignado' => $colId,
+                    'modulo' => 'asignacion_empresa',
+                    'nivel' => 'normal',
+                    'titulo' => 'Nueva empresa asignada',
+                    'descripcion' => "Se te asignó la empresa cliente {$emp->nombre} para gestión de personal y documentos.",
+                    'generada_auto' => true,
+                ]);
+            }
+        }
 
         return $this->ok($emp->colaboradores()->get());
     }

@@ -15,6 +15,7 @@ class PersonalCaja extends Model
 
     protected $fillable = [
         'personal_id',
+        'regimen_caja',
         'caja_nombre',
         'numero_asegurado',
         'fecha_afiliacion',

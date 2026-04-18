@@ -24,7 +24,7 @@ class MiEquipoController extends ApiController
 
         $q = Colaborador::query()
             ->where('consultora_id', $consultoraId)
-            ->with('usuario')
+            ->with(['usuario', 'permisosPorModulo'])
             ->orderBy('id');
 
         if ($s = $request->get('search')) {
@@ -59,6 +59,20 @@ class MiEquipoController extends ApiController
             $row['acceso_habilitado'] = $u && $u->estado !== 'inactivo';
             $row['usuario_estado'] = $u?->estado;
             $row['debe_cambiar_contrasena'] = (bool) ($u?->debe_cambiar_contrasena);
+            $row['puede_editar_empresa_cliente'] = (bool) $c->puede_editar_empresa_cliente;
+            $row['permisos_por_modulo'] = $c->permisosPorModulo->map(static function ($p) {
+                return [
+                    'modulo' => $p->modulo,
+                    'puede_ver' => (bool) $p->puede_ver,
+                    'puede_registrar_personal' => (bool) $p->puede_registrar_personal,
+                    'puede_editar_personal' => (bool) $p->puede_editar_personal,
+                    'puede_subir_documentos' => (bool) $p->puede_subir_documentos,
+                    'puede_eliminar_documentos' => (bool) $p->puede_eliminar_documentos,
+                    'puede_gestionar_modulo' => (bool) $p->puede_gestionar_modulo,
+                    'puede_exportar_reportes' => (bool) $p->puede_exportar_reportes,
+                    'puede_invitar_empresa' => (bool) $p->puede_invitar_empresa,
+                ];
+            })->values()->all();
 
             return $row;
         })->all();
@@ -199,6 +213,7 @@ class MiEquipoController extends ApiController
         }
 
         $payload = $request->validate([
+            'puede_editar_empresa_cliente' => ['sometimes', 'boolean'],
             'permisos' => ['required', 'array'],
             'permisos.*.modulo' => ['required', 'string'],
             'permisos.*.puede_ver' => ['sometimes', 'boolean'],
@@ -210,6 +225,11 @@ class MiEquipoController extends ApiController
             'permisos.*.puede_exportar_reportes' => ['sometimes', 'boolean'],
             'permisos.*.puede_invitar_empresa' => ['sometimes', 'boolean'],
         ]);
+
+        if (array_key_exists('puede_editar_empresa_cliente', $payload)) {
+            $col->puede_editar_empresa_cliente = $payload['puede_editar_empresa_cliente'];
+            $col->save();
+        }
 
         foreach ($payload['permisos'] as $row) {
             ColaboradorPermiso::query()->updateOrCreate(
@@ -228,7 +248,22 @@ class MiEquipoController extends ApiController
             );
         }
 
-        return $this->ok($col->permisosPorModulo()->get());
+        return $this->ok([
+            'puede_editar_empresa_cliente' => (bool) $col->fresh()->puede_editar_empresa_cliente,
+            'permisos_por_modulo' => $col->permisosPorModulo()->get()->map(static function ($p) {
+                return [
+                    'modulo' => $p->modulo,
+                    'puede_ver' => (bool) $p->puede_ver,
+                    'puede_registrar_personal' => (bool) $p->puede_registrar_personal,
+                    'puede_editar_personal' => (bool) $p->puede_editar_personal,
+                    'puede_subir_documentos' => (bool) $p->puede_subir_documentos,
+                    'puede_eliminar_documentos' => (bool) $p->puede_eliminar_documentos,
+                    'puede_gestionar_modulo' => (bool) $p->puede_gestionar_modulo,
+                    'puede_exportar_reportes' => (bool) $p->puede_exportar_reportes,
+                    'puede_invitar_empresa' => (bool) $p->puede_invitar_empresa,
+                ];
+            })->values()->all(),
+        ]);
     }
 
     private function seedPermisos(Colaborador $col, string $cargo, int $consultoraId): void

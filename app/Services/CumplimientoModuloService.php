@@ -13,11 +13,28 @@ class CumplimientoModuloService
 {
     public function recalcularPersonal(Personal $personal, string $modulo): void
     {
-        $obligatorios = TipoDocumento::query()
+        $personal->loadMissing('empresaCliente');
+        $consultoraId = $personal->empresaCliente?->consultora_id;
+
+        $q = TipoDocumento::query()
             ->where('modulo', $modulo)
             ->where('obligatorio', true)
             ->where('activo', true)
-            ->pluck('id');
+            ->visiblesParaConsultora($consultoraId);
+
+        if ($modulo === 'caja') {
+            $regimen = PersonalCaja::query()
+                ->where('personal_id', $personal->id)
+                ->value('regimen_caja');
+            if (! $regimen) {
+                $this->setEstadoModulo($personal, $modulo, 'sin_datos');
+
+                return;
+            }
+            $q->where('caja_variante', $regimen);
+        }
+
+        $obligatorios = $q->pluck('id');
 
         if ($obligatorios->isEmpty()) {
             $this->setEstadoModulo($personal, $modulo, 'sin_datos');

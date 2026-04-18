@@ -100,7 +100,7 @@ class Usuario extends Authenticatable
 
     public function toApiArray(): array
     {
-        return [
+        $base = [
             'id' => $this->id,
             'nombre_usuario' => $this->nombre_usuario,
             'correo' => $this->correo,
@@ -112,5 +112,38 @@ class Usuario extends Authenticatable
             'debe_cambiar_contrasena' => (bool) $this->debe_cambiar_contrasena,
             'debe_cambiar_password' => (bool) $this->debe_cambiar_contrasena,
         ];
+
+        if ($this->tipo === 'colaborador') {
+            $col = $this->relationLoaded('colaborador')
+                ? $this->colaborador
+                : $this->colaborador()->with('permisosPorModulo')->first();
+            if ($col) {
+                if (! $col->relationLoaded('permisosPorModulo')) {
+                    $col->load('permisosPorModulo');
+                }
+                $permisos = $col->permisosPorModulo;
+                $base['colaborador'] = [
+                    'id' => $col->id,
+                    'puede_editar_empresa_cliente' => (bool) $col->puede_editar_empresa_cliente,
+                    'permisos_por_modulo' => $permisos->map(static function ($p) {
+                        return [
+                            'modulo' => $p->modulo,
+                            'puede_ver' => (bool) $p->puede_ver,
+                            'puede_registrar_personal' => (bool) $p->puede_registrar_personal,
+                            'puede_editar_personal' => (bool) $p->puede_editar_personal,
+                            'puede_subir_documentos' => (bool) $p->puede_subir_documentos,
+                            'puede_eliminar_documentos' => (bool) $p->puede_eliminar_documentos,
+                            'puede_gestionar_modulo' => (bool) $p->puede_gestionar_modulo,
+                            'puede_exportar_reportes' => (bool) $p->puede_exportar_reportes,
+                            'puede_invitar_empresa' => (bool) $p->puede_invitar_empresa,
+                        ];
+                    })->values()->all(),
+                    'puede_editar_personal' => $permisos->contains(fn ($p) => $p->puede_editar_personal),
+                    'puede_registrar_personal' => $permisos->contains(fn ($p) => $p->puede_registrar_personal),
+                ];
+            }
+        }
+
+        return $base;
     }
 }

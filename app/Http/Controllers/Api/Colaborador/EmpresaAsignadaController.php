@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Colaborador;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Models\EmpresaCliente;
+use App\Services\ColaboradorAutorizacionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -96,5 +97,60 @@ class EmpresaAsignadaController extends ApiController
 
             return $row;
         })->all();
+    }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $emp = ColaboradorAutorizacionService::empresaAccesible($request->user(), $id);
+        if (! $emp) {
+            return $this->fail('Sin acceso a esta empresa.', 403);
+        }
+
+        if (! ColaboradorAutorizacionService::puedeEditarEmpresaCliente($request->user(), $id)) {
+            return $this->fail('No autorizado para editar datos de la empresa.', 403);
+        }
+
+        $data = $request->validate([
+            'nombre' => ['sometimes', 'string', 'max:200'],
+            'nit' => ['sometimes', 'string', 'max:30'],
+            'razon_social' => ['nullable', 'string', 'max:200'],
+            'ciudad' => ['nullable', 'string', 'max:100'],
+            'departamento' => ['nullable', 'string', 'max:100'],
+            'direccion' => ['nullable', 'string'],
+            'telefono' => ['nullable', 'string', 'max:20'],
+            'correo_empresa' => ['nullable', 'email', 'max:150'],
+            'actividad_economica' => ['nullable', 'string', 'max:200'],
+            'matricula_comercio' => ['nullable', 'string', 'max:50'],
+            'rep_legal_nombres' => ['nullable', 'string', 'max:100'],
+            'rep_legal_apellidos' => ['nullable', 'string', 'max:100'],
+            'rep_legal_ci' => ['nullable', 'string', 'max:20'],
+            'observaciones' => ['nullable', 'string'],
+        ]);
+
+        if ($data === []) {
+            return $this->fail('No hay datos para actualizar.', 422);
+        }
+
+        if (isset($data['nit'])) {
+            $dup = EmpresaCliente::query()
+                ->where('consultora_id', $emp->consultora_id)
+                ->where('nit', $data['nit'])
+                ->where('id', '!=', $emp->id)
+                ->exists();
+            if ($dup) {
+                return $this->fail('NIT ya registrado para esta consultora.', 422);
+            }
+        }
+
+        $emp->fill($data);
+        $emp->save();
+
+        $fresh = $emp->fresh()->load('usuario');
+        $row = $fresh->toArray();
+        $u = $fresh->usuario;
+        $row['acceso_portal_habilitado'] = $fresh->usuario_id && $u && $u->estado !== 'inactivo';
+        $row['usuario_estado'] = $u?->estado;
+
+        return $this->ok($row);
     }
 }

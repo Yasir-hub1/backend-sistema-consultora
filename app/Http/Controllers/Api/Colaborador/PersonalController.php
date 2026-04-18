@@ -3,8 +3,12 @@
 namespace App\Http\Controllers\Api\Colaborador;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Models\Alerta;
 use App\Models\EmpresaCliente;
 use App\Models\Personal;
+use App\Models\PersonalCaja;
+use App\Services\ColaboradorAutorizacionService;
+use App\Services\CumplimientoModuloService;
 use App\Services\PersonalRegistroService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,27 +16,13 @@ use Illuminate\Http\Request;
 class PersonalController extends ApiController
 {
     public function __construct(
-        private PersonalRegistroService $personalRegistroService
+        private PersonalRegistroService $personalRegistroService,
+        private CumplimientoModuloService $cumplimientoModuloService
     ) {}
 
     private function empresaAccesible(Request $request, int $empresaId): ?EmpresaCliente
     {
-        $empresa = EmpresaCliente::query()->find($empresaId);
-        if (! $empresa) {
-            return null;
-        }
-
-        $u = $request->user();
-        if ($u->tipo === 'consultora' && ($ec = $u->empresaConsultoraTitular)) {
-            return $ec->id === $empresa->consultora_id ? $empresa : null;
-        }
-
-        $c = $u->colaborador;
-        if (! $c) {
-            return null;
-        }
-
-        return $c->empresasCliente()->whereKey($empresaId)->wherePivot('activo', true)->first();
+        return ColaboradorAutorizacionService::empresaAccesible($request->user(), $empresaId);
     }
 
     public function index(Request $request, int $empresaClienteId): JsonResponse
@@ -113,10 +103,48 @@ class PersonalController extends ApiController
         return $this->ok($per);
     }
 
+    public function patchRegimenCaja(Request $request, int $empresaClienteId, int $personalId): JsonResponse
+    {
+        if (! $this->empresaAccesible($request, $empresaClienteId)) {
+            return $this->fail('Sin acceso a esta empresa.', 403);
+        }
+
+        if (! ColaboradorAutorizacionService::puedeEditarPersonal($request->user(), $empresaClienteId)) {
+            return $this->fail('No autorizado para editar datos de personal.', 403);
+        }
+
+        $data = $request->validate([
+            'regimen_caja' => ['required', 'string', 'in:nacional,petrolera'],
+        ]);
+
+        $per = Personal::query()
+            ->where('empresa_id', $empresaClienteId)
+            ->find($personalId);
+
+        if (! $per) {
+            return $this->fail('No encontrado', 404);
+        }
+
+        $caja = PersonalCaja::query()->firstOrCreate(
+            ['personal_id' => $per->id],
+            ['estado' => 'sin_datos']
+        );
+        $caja->regimen_caja = $data['regimen_caja'];
+        $caja->save();
+
+        $this->cumplimientoModuloService->recalcularPersonal($per, 'caja');
+
+        return $this->ok($per->fresh()->load(['afp', 'caja', 'ministerio']));
+    }
+
     public function store(Request $request, int $empresaClienteId): JsonResponse
     {
         if (! $this->empresaAccesible($request, $empresaClienteId)) {
             return $this->fail('Sin acceso a esta empresa.', 403);
+        }
+
+        if (! ColaboradorAutorizacionService::puedeRegistrarPersonal($request->user(), $empresaClienteId)) {
+            return $this->fail('No autorizado para registrar personal.', 403);
         }
 
         $data = $request->validate([
@@ -155,6 +183,93 @@ class PersonalController extends ApiController
             'numero_asegurado' => $data['nro_caja'] ?? null,
         ]);
 
+        $empresa = EmpresaCliente::query()->find($empresaClienteId);
+        if ($empresa) {
+            $alreadyNotified = Alerta::query()
+                ->where('consultora_id', $empresa->consultora_id)
+                ->where('empresa_id', $empresa->id)
+                ->where('personal_id', $per->id)
+                ->where('modulo', 'registro_personal')
+                ->where('resuelta', false)
+                ->exists();
+
+            if (! $alreadyNotified) {
+                Alerta::create([
+                    'consultora_id' => $empresa->consultora_id,
+                    'empresa_id' => $empresa->id,
+                    'personal_id' => $per->id,
+                    'colaborador_asignado' => $colabId,
+                    'modulo' => 'registro_personal',
+                    'nivel' => 'normal',
+                    'titulo' => 'Nuevo personal registrado',
+                    'descripcion' => "{$per->nombres} {$per->apellidos} fue registrado en {$empresa->nombre}.",
+                    'generada_auto' => true,
+                ]);
+            }
+        }
+
         return $this->ok($per->load(['afp', 'caja', 'ministerio']), 'Personal creado', 201);
+    }
+
+    public function update(Request $request, int $empresaClienteId, int $personalId): JsonResponse
+    {
+        if (! $this->empresaAccesible($request, $empresaClienteId)) {
+            return $this->fail('Sin acceso a esta empresa.', 403);
+        }
+
+        if (! ColaboradorAutorizacionService::puedeEditarPersonal($request->user(), $empresaClienteId)) {
+            return $this->fail('No autorizado para editar personal.', 403);
+        }
+
+        $per = Personal::query()
+            ->where('empresa_id', $empresaClienteId)
+            ->find($personalId);
+
+        if (! $per) {
+            return $this->fail('No encontrado', 404);
+        }
+
+        $data = $request->validate([
+            'nombres' => ['sometimes', 'string', 'max:100'],
+            'apellidos' => ['sometimes', 'string', 'max:100'],
+            'ci' => ['sometimes', 'string', 'max:20'],
+            'extension_ci' => ['nullable', 'string', 'max:4'],
+            'fecha_nacimiento' => ['nullable', 'date'],
+            'genero' => ['nullable', 'string', 'max:32'],
+            'estado_civil' => ['nullable', 'string', 'max:32'],
+            'telefono' => ['nullable', 'string', 'max:30'],
+            'correo' => ['nullable', 'email', 'max:150'],
+            'direccion' => ['nullable', 'string'],
+            'nivel_educacion' => ['nullable', 'string', 'max:100'],
+            'profesion' => ['nullable', 'string', 'max:150'],
+            'cargo' => ['sometimes', 'string', 'max:150'],
+            'fecha_ingreso' => ['sometimes', 'date'],
+            'fecha_egreso' => ['nullable', 'date'],
+            'tipo_contrato' => ['nullable', 'string', 'max:64'],
+            'salario_mensual' => ['nullable', 'numeric'],
+            'modalidad' => ['nullable', 'string', 'max:64'],
+            'estado' => ['nullable', 'string', 'max:32'],
+            'observaciones' => ['nullable', 'string'],
+        ]);
+
+        if ($data === []) {
+            return $this->fail('No hay datos para actualizar.', 422);
+        }
+
+        if (isset($data['ci'])) {
+            $dup = Personal::query()
+                ->where('empresa_id', $empresaClienteId)
+                ->where('ci', $data['ci'])
+                ->where('id', '!=', $per->id)
+                ->exists();
+            if ($dup) {
+                return $this->fail('CI ya registrado en esta empresa.', 422);
+            }
+        }
+
+        $per->fill($data);
+        $per->save();
+
+        return $this->ok($per->fresh()->load(['afp', 'caja', 'ministerio', 'empresaCliente']));
     }
 }

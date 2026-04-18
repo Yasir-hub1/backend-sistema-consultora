@@ -17,6 +17,19 @@ class DocumentoModuloController extends ApiController
         private CumplimientoModuloService $cumplimiento
     ) {}
 
+    private function consultoraIdDelUsuario(Request $request): ?int
+    {
+        $u = $request->user();
+        if ($u->tipo === 'consultora') {
+            return $u->empresaConsultoraTitular?->id;
+        }
+        if ($u->tipo === 'colaborador') {
+            return $u->colaborador?->consultora_id;
+        }
+
+        return null;
+    }
+
     private function puede(Request $request, int $empresaId): bool
     {
         $empresa = EmpresaCliente::query()->find($empresaId);
@@ -67,11 +80,21 @@ class DocumentoModuloController extends ApiController
             return $this->fail('Módulo inválido', 422);
         }
 
-        $tipos = TipoDocumento::query()
+        $consultoraId = $this->consultoraIdDelUsuario($request);
+
+        $q = TipoDocumento::query()
             ->where('modulo', $modulo)
             ->where('activo', true)
-            ->orderBy('orden_visualizacion')
-            ->get();
+            ->visiblesParaConsultora($consultoraId);
+
+        if ($modulo === 'caja') {
+            $v = $request->query('caja_variante');
+            if (in_array($v, ['nacional', 'petrolera'], true)) {
+                $q->where('caja_variante', $v);
+            }
+        }
+
+        $tipos = $q->orderBy('orden_visualizacion')->orderBy('id')->get();
 
         return $this->ok($tipos);
     }
@@ -103,6 +126,18 @@ class DocumentoModuloController extends ApiController
         $tipo = TipoDocumento::query()->findOrFail($request->integer('tipo_documento_id'));
         if ($tipo->modulo !== $modulo) {
             return $this->fail('El tipo no pertenece al módulo.', 422);
+        }
+
+        $per->loadMissing('empresaCliente');
+        $consultoraId = $per->empresaCliente?->consultora_id;
+        $tipoVisible = TipoDocumento::query()
+            ->whereKey($tipo->id)
+            ->where('modulo', $modulo)
+            ->where('activo', true)
+            ->visiblesParaConsultora($consultoraId)
+            ->exists();
+        if (! $tipoVisible) {
+            return $this->fail('Este tipo de documento no está disponible para tu consultora.', 422);
         }
 
         $file = $request->file('archivo');

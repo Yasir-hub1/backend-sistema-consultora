@@ -30,12 +30,14 @@ class Colaborador extends Model
         'fecha_ingreso',
         'estado',
         'observaciones',
+        'puede_editar_empresa_cliente',
     ];
 
     protected function casts(): array
     {
         return [
             'fecha_ingreso' => 'date',
+            'puede_editar_empresa_cliente' => 'boolean',
             'creado_en' => 'datetime',
             'actualizado_en' => 'datetime',
         ];
