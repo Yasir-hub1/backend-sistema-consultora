@@ -41,6 +41,17 @@ class Personal extends Model
         'modalidad',
         'estado',
         'observaciones',
+        'curriculum_archivo_path',
+        'curriculum_archivo_nombre',
+        'licencia_conducir_archivo_path',
+        'licencia_conducir_archivo_nombre',
+        'aviso_luz_agua_archivo_path',
+        'aviso_luz_agua_archivo_nombre',
+        'croquis_archivo_path',
+        'croquis_archivo_nombre',
+        'contactos_referencia',
+        'correo_electronico',
+        'cuenta_bancaria',
     ];
 
     protected function casts(): array
@@ -50,6 +61,7 @@ class Personal extends Model
             'fecha_ingreso' => 'date',
             'fecha_egreso' => 'date',
             'salario_mensual' => 'decimal:2',
+            'contactos_referencia' => 'array',
             'creado_en' => 'datetime',
             'actualizado_en' => 'datetime',
         ];

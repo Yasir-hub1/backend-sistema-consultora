@@ -12,6 +12,8 @@ use App\Services\CumplimientoModuloService;
 use App\Services\PersonalRegistroService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 class PersonalController extends ApiController
 {
@@ -23,6 +25,57 @@ class PersonalController extends ApiController
     private function empresaAccesible(Request $request, int $empresaId): ?EmpresaCliente
     {
         return ColaboradorAutorizacionService::empresaAccesible($request->user(), $empresaId);
+    }
+
+    private function decodeContactosReferencia(Request $request): ?array
+    {
+        $raw = $request->input('contactos_referencia');
+        if ($raw === null) {
+            return null;
+        }
+
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($raw) ? $raw : [];
+    }
+
+    private function saveLegajoArchivo(?UploadedFile $file, int $empresaClienteId, int $personalId, string $folder): ?array
+    {
+        if (! $file) {
+            return null;
+        }
+
+        $path = $file->store("personal/empresa_{$empresaClienteId}/{$personalId}/{$folder}", 'public');
+
+        return [
+            'path' => $path,
+            'nombre' => $file->getClientOriginalName(),
+        ];
+    }
+
+    private function withLegajoFileUrls(Personal $per): Personal
+    {
+        $per->setAttribute(
+            'curriculum_archivo_url',
+            $per->curriculum_archivo_path ? Storage::url($per->curriculum_archivo_path) : null
+        );
+        $per->setAttribute(
+            'licencia_conducir_archivo_url',
+            $per->licencia_conducir_archivo_path ? Storage::url($per->licencia_conducir_archivo_path) : null
+        );
+        $per->setAttribute(
+            'aviso_luz_agua_archivo_url',
+            $per->aviso_luz_agua_archivo_path ? Storage::url($per->aviso_luz_agua_archivo_path) : null
+        );
+        $per->setAttribute(
+            'croquis_archivo_url',
+            $per->croquis_archivo_path ? Storage::url($per->croquis_archivo_path) : null
+        );
+
+        return $per;
     }
 
     public function index(Request $request, int $empresaClienteId): JsonResponse
@@ -100,7 +153,7 @@ class PersonalController extends ApiController
             return $this->fail('No encontrado', 404);
         }
 
-        return $this->ok($per);
+        return $this->ok($this->withLegajoFileUrls($per));
     }
 
     public function patchRegimenCaja(Request $request, int $empresaClienteId, int $personalId): JsonResponse
@@ -147,6 +200,11 @@ class PersonalController extends ApiController
             return $this->fail('No autorizado para registrar personal.', 403);
         }
 
+        $contactosReferencia = $this->decodeContactosReferencia($request);
+        if ($contactosReferencia !== null) {
+            $request->merge(['contactos_referencia' => $contactosReferencia]);
+        }
+
         $data = $request->validate([
             'nombres' => ['required', 'string', 'max:100'],
             'apellidos' => ['required', 'string', 'max:100'],
@@ -158,6 +216,14 @@ class PersonalController extends ApiController
             'nro_afp' => ['nullable', 'string', 'max:50'],
             'caja_id' => ['nullable'],
             'nro_caja' => ['nullable', 'string', 'max:50'],
+            'correo_electronico' => ['nullable', 'email', 'max:150'],
+            'cuenta_bancaria' => ['nullable', 'string', 'max:120'],
+            'contactos_referencia' => ['nullable', 'array', 'min:2', 'max:3'],
+            'contactos_referencia.*' => ['nullable', 'string', 'max:160'],
+            'curriculum_archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'licencia_conducir_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'aviso_luz_agua_archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'croquis_archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
         ]);
 
         if (Personal::query()->where('empresa_id', $empresaClienteId)->where('ci', $data['ci'])->exists()) {
@@ -175,7 +241,33 @@ class PersonalController extends ApiController
             'fecha_nacimiento' => $data['fecha_nacimiento'] ?? null,
             'cargo' => $data['cargo'],
             'fecha_ingreso' => $data['fecha_ingreso'],
+            'correo_electronico' => $data['correo_electronico'] ?? null,
+            'cuenta_bancaria' => $data['cuenta_bancaria'] ?? null,
+            'contactos_referencia' => $data['contactos_referencia'] ?? null,
         ]);
+
+        $curriculum = $this->saveLegajoArchivo($request->file('curriculum_archivo'), $empresaClienteId, $per->id, 'curriculum');
+        $licencia = $this->saveLegajoArchivo($request->file('licencia_conducir_archivo'), $empresaClienteId, $per->id, 'licencia');
+        $aviso = $this->saveLegajoArchivo($request->file('aviso_luz_agua_archivo'), $empresaClienteId, $per->id, 'aviso_luz_agua');
+        $croquis = $this->saveLegajoArchivo($request->file('croquis_archivo'), $empresaClienteId, $per->id, 'croquis');
+
+        if ($curriculum) {
+            $per->curriculum_archivo_path = $curriculum['path'];
+            $per->curriculum_archivo_nombre = $curriculum['nombre'];
+        }
+        if ($licencia) {
+            $per->licencia_conducir_archivo_path = $licencia['path'];
+            $per->licencia_conducir_archivo_nombre = $licencia['nombre'];
+        }
+        if ($aviso) {
+            $per->aviso_luz_agua_archivo_path = $aviso['path'];
+            $per->aviso_luz_agua_archivo_nombre = $aviso['nombre'];
+        }
+        if ($croquis) {
+            $per->croquis_archivo_path = $croquis['path'];
+            $per->croquis_archivo_nombre = $croquis['nombre'];
+        }
+        $per->save();
 
         $this->personalRegistroService->crearConModulos($per, [
             'numero_afiliado' => $data['nro_afp'] ?? null,
@@ -198,17 +290,22 @@ class PersonalController extends ApiController
                     'consultora_id' => $empresa->consultora_id,
                     'empresa_id' => $empresa->id,
                     'personal_id' => $per->id,
-                    'colaborador_asignado' => $colabId,
                     'modulo' => 'registro_personal',
                     'nivel' => 'normal',
                     'titulo' => 'Nuevo personal registrado',
                     'descripcion' => "{$per->nombres} {$per->apellidos} fue registrado en {$empresa->nombre}.",
                     'generada_auto' => true,
+                    'contexto' => [
+                        'paths' => [
+                            'consultora' => '/consultora/mis-empresas/'.$empresa->id,
+                            'empresa_cliente' => '/empresa-cliente/personal/'.$per->id,
+                        ],
+                    ],
                 ]);
             }
         }
 
-        return $this->ok($per->load(['afp', 'caja', 'ministerio']), 'Personal creado', 201);
+        return $this->ok($this->withLegajoFileUrls($per->load(['afp', 'caja', 'ministerio'])), 'Personal creado', 201);
     }
 
     public function update(Request $request, int $empresaClienteId, int $personalId): JsonResponse
@@ -227,6 +324,11 @@ class PersonalController extends ApiController
 
         if (! $per) {
             return $this->fail('No encontrado', 404);
+        }
+
+        $contactosReferencia = $this->decodeContactosReferencia($request);
+        if ($contactosReferencia !== null) {
+            $request->merge(['contactos_referencia' => $contactosReferencia]);
         }
 
         $data = $request->validate([
@@ -250,6 +352,14 @@ class PersonalController extends ApiController
             'modalidad' => ['nullable', 'string', 'max:64'],
             'estado' => ['nullable', 'string', 'max:32'],
             'observaciones' => ['nullable', 'string'],
+            'correo_electronico' => ['nullable', 'email', 'max:150'],
+            'cuenta_bancaria' => ['nullable', 'string', 'max:120'],
+            'contactos_referencia' => ['nullable', 'array', 'min:2', 'max:3'],
+            'contactos_referencia.*' => ['nullable', 'string', 'max:160'],
+            'curriculum_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'licencia_conducir_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'aviso_luz_agua_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'croquis_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
         ]);
 
         if ($data === []) {
@@ -268,8 +378,34 @@ class PersonalController extends ApiController
         }
 
         $per->fill($data);
+
+        $curriculum = $this->saveLegajoArchivo($request->file('curriculum_archivo'), $empresaClienteId, $per->id, 'curriculum');
+        if ($curriculum) {
+            Storage::disk('public')->delete((string) $per->curriculum_archivo_path);
+            $per->curriculum_archivo_path = $curriculum['path'];
+            $per->curriculum_archivo_nombre = $curriculum['nombre'];
+        }
+        $licencia = $this->saveLegajoArchivo($request->file('licencia_conducir_archivo'), $empresaClienteId, $per->id, 'licencia');
+        if ($licencia) {
+            Storage::disk('public')->delete((string) $per->licencia_conducir_archivo_path);
+            $per->licencia_conducir_archivo_path = $licencia['path'];
+            $per->licencia_conducir_archivo_nombre = $licencia['nombre'];
+        }
+        $aviso = $this->saveLegajoArchivo($request->file('aviso_luz_agua_archivo'), $empresaClienteId, $per->id, 'aviso_luz_agua');
+        if ($aviso) {
+            Storage::disk('public')->delete((string) $per->aviso_luz_agua_archivo_path);
+            $per->aviso_luz_agua_archivo_path = $aviso['path'];
+            $per->aviso_luz_agua_archivo_nombre = $aviso['nombre'];
+        }
+        $croquis = $this->saveLegajoArchivo($request->file('croquis_archivo'), $empresaClienteId, $per->id, 'croquis');
+        if ($croquis) {
+            Storage::disk('public')->delete((string) $per->croquis_archivo_path);
+            $per->croquis_archivo_path = $croquis['path'];
+            $per->croquis_archivo_nombre = $croquis['nombre'];
+        }
+
         $per->save();
 
-        return $this->ok($per->fresh()->load(['afp', 'caja', 'ministerio', 'empresaCliente']));
+        return $this->ok($this->withLegajoFileUrls($per->fresh()->load(['afp', 'caja', 'ministerio', 'empresaCliente'])));
     }
 }

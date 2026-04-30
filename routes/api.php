@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\EstadisticaController;
 use App\Http\Controllers\Api\Auth\LaboraAuthController;
 use App\Http\Controllers\Api\Colaborador\AlertaController as ColaboradorAlertaController;
 use App\Http\Controllers\Api\Colaborador\DashboardController as ColaboradorDashboardController;
+use App\Http\Controllers\Api\Colaborador\DeclaracionMensualController;
 use App\Http\Controllers\Api\Colaborador\DocumentoModuloController;
 use App\Http\Controllers\Api\Colaborador\EmpresaAsignadaController;
 use App\Http\Controllers\Api\Colaborador\PersonalController as ColaboradorPersonalController;
@@ -13,8 +14,12 @@ use App\Http\Controllers\Api\Consultora\CatalogoConsultoraController;
 use App\Http\Controllers\Api\Consultora\ConfiguracionController;
 use App\Http\Controllers\Api\Consultora\EmpresaClienteController as ConsultoraEmpresaClienteController;
 use App\Http\Controllers\Api\Consultora\MiEquipoController;
+use App\Http\Controllers\Api\Consultora\ReporteDeclaracionController;
 use App\Http\Controllers\Api\Consultora\TiposDocumentoController;
+use App\Http\Controllers\Api\PushSubscriptionController;
+use App\Http\Controllers\Api\EmpresaCliente\AlertaController as EmpresaClienteAlertaController;
 use App\Http\Controllers\Api\EmpresaCliente\DashboardController as EmpresaClienteDashboardController;
+use App\Http\Controllers\Api\EmpresaCliente\DeclaracionMensualController as EmpresaClienteDeclaracionMensualController;
 use App\Http\Controllers\Api\EmpresaCliente\DocumentoDescargaController;
 use App\Http\Controllers\Api\EmpresaCliente\MiConsultoraController;
 use App\Http\Controllers\Api\EmpresaCliente\PersonalController as EmpresaClientePersonalController;
@@ -28,6 +33,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [LaboraAuthController::class, 'logout']);
     Route::get('/auth/perfil', [LaboraAuthController::class, 'perfil']);
     Route::post('/auth/cambiar-contrasena-inicial', [LaboraAuthController::class, 'cambiarContrasenaInicial']);
+    Route::get('/push/public-key', [PushSubscriptionController::class, 'publicKey']);
+    Route::post('/push/subscribe', [PushSubscriptionController::class, 'store']);
+    Route::delete('/push/unsubscribe', [PushSubscriptionController::class, 'destroy']);
 });
 
 Route::middleware(['auth:sanctum', 'usuario.tipo:administrador'])->prefix('admin')->group(function () {
@@ -66,6 +74,12 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:consultora'])->prefix('consulto
     Route::put('/empresas-cliente/{id}/asignaciones', [ConsultoraEmpresaClienteController::class, 'asignaciones'])->whereNumber('id');
 
     Route::get('/alertas', [AlertaController::class, 'index']);
+    Route::patch('/alertas/marcar-todas-leidas', [AlertaController::class, 'marcarTodasLeidas']);
+    Route::patch('/alertas/{id}/marcar-leida', [AlertaController::class, 'marcarLeida'])->whereNumber('id');
+    Route::get('/reportes/declaraciones', [ReporteDeclaracionController::class, 'index']);
+    Route::get('/reportes/declaraciones/{id}/vista-previa', [ReporteDeclaracionController::class, 'vistaPrevia'])->whereNumber('id');
+    Route::get('/reportes/declaraciones/{id}/descargar', [ReporteDeclaracionController::class, 'descargar'])->whereNumber('id');
+    Route::post('/reportes/declaraciones/exportar-pdf', [ReporteDeclaracionController::class, 'exportarPdf']);
 });
 
 Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->prefix('colaborador')->group(function () {
@@ -73,7 +87,20 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->pref
     Route::get('/empresas-cliente', [EmpresaAsignadaController::class, 'index']);
     Route::patch('/empresas-cliente/{empresaClienteId}', [EmpresaAsignadaController::class, 'update'])->whereNumber('empresaClienteId');
     Route::get('/alertas', [ColaboradorAlertaController::class, 'index']);
+    Route::patch('/alertas/marcar-todas-leidas', [ColaboradorAlertaController::class, 'marcarTodasLeidas']);
+    Route::patch('/alertas/{id}/marcar-leida', [ColaboradorAlertaController::class, 'marcarLeida'])->whereNumber('id');
     Route::get('/modulos/{modulo}/tipos-documento', [DocumentoModuloController::class, 'tipos']);
+
+    Route::get('/empresas-cliente/{empresaClienteId}/declaraciones-mensuales', [DeclaracionMensualController::class, 'index'])
+        ->whereNumber('empresaClienteId');
+    Route::post('/empresas-cliente/{empresaClienteId}/declaraciones-mensuales', [DeclaracionMensualController::class, 'store'])
+        ->whereNumber('empresaClienteId');
+    Route::get('/empresas-cliente/{empresaClienteId}/declaraciones-mensuales/{id}/vista-previa', [DeclaracionMensualController::class, 'vistaPrevia'])
+        ->whereNumber('empresaClienteId')
+        ->whereNumber('id');
+    Route::get('/empresas-cliente/{empresaClienteId}/declaraciones-mensuales/{id}/descargar', [DeclaracionMensualController::class, 'descargar'])
+        ->whereNumber('empresaClienteId')
+        ->whereNumber('id');
 
     Route::get('/empresas-cliente/{empresaClienteId}/personal', [ColaboradorPersonalController::class, 'index'])->whereNumber('empresaClienteId');
     Route::post('/empresas-cliente/{empresaClienteId}/personal', [ColaboradorPersonalController::class, 'store'])->whereNumber('empresaClienteId');
@@ -100,8 +127,16 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->pref
 Route::middleware(['auth:sanctum', 'usuario.tipo:empresa_cliente'])->prefix('empresa-cliente')->group(function () {
     Route::get('/dashboard', EmpresaClienteDashboardController::class);
     Route::get('/mi-consultora', MiConsultoraController::class);
+    Route::get('/alertas', [EmpresaClienteAlertaController::class, 'index']);
+    Route::patch('/alertas/marcar-todas-leidas', [EmpresaClienteAlertaController::class, 'marcarTodasLeidas']);
+    Route::patch('/alertas/{id}/marcar-leida', [EmpresaClienteAlertaController::class, 'marcarLeida'])->whereNumber('id');
     Route::get('/personal', [EmpresaClientePersonalController::class, 'index']);
     Route::get('/personal/{personalId}', [EmpresaClientePersonalController::class, 'show'])->whereNumber('personalId');
     Route::get('/documentos/{documento}/descargar', [DocumentoDescargaController::class, 'url'])->whereNumber('documento');
     Route::get('/documentos/{documento}/stream', [DocumentoDescargaController::class, 'stream'])->whereNumber('documento');
+
+    Route::get('/declaraciones-mensuales', [EmpresaClienteDeclaracionMensualController::class, 'index']);
+    Route::post('/declaraciones-mensuales/descarga-zip', [EmpresaClienteDeclaracionMensualController::class, 'descargarZip']);
+    Route::get('/declaraciones-mensuales/{id}/descargar', [EmpresaClienteDeclaracionMensualController::class, 'descargar'])
+        ->whereNumber('id');
 });

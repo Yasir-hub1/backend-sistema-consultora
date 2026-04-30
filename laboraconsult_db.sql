@@ -1,5 +1,5 @@
 -- =============================================================================
---  LaboraConsult — Script de Base de Datos PostgreSQL
+--  Consult-360 — Script de Base de Datos PostgreSQL
 --  Sistema de Gestión Laboral (AFP / CAJA / Ministerio de Trabajo)
 --  Versión: 1.0  |  Idioma: Español
 -- =============================================================================

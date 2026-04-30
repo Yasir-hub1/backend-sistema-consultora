@@ -9,7 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
- * Usuario del sistema LaboraConsult (autenticación central + Sanctum).
+ * Usuario del sistema Consult-360 (autenticación central + Sanctum).
  *
  * Tipos: administrador, consultora, colaborador, empresa_cliente.
  */
@@ -96,6 +96,11 @@ class Usuario extends Authenticatable
     public function sesionesLaboraConsult(): HasMany
     {
         return $this->hasMany(Sesion::class, 'usuario_id');
+    }
+
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class, 'usuario_id');
     }
 
     public function toApiArray(): array

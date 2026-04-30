@@ -1,5 +1,5 @@
 -- =============================================================================
---  LaboraConsult — Script de Base de Datos PostgreSQL v2.0
+--  Consult-360 — Script de Base de Datos PostgreSQL v2.0
 --  Sistema de Gestión Laboral (AFP / CAJA / Ministerio de Trabajo)
 --
 --  ARQUITECTURA CORREGIDA:
@@ -1411,5 +1411,5 @@ COMMENT ON VIEW v_stats_consultora IS 'KPIs del dashboard principal de la consul
 
 
 -- =============================================================================
--- FIN DEL SCRIPT — LaboraConsult DB v2.0
+-- FIN DEL SCRIPT — Consult-360 DB v2.0
 -- =============================================================================

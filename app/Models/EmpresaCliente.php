@@ -80,4 +80,9 @@ class EmpresaCliente extends Model
     {
         return $this->hasMany(Alerta::class, 'empresa_id');
     }
+
+    public function declaracionesMensuales(): HasMany
+    {
+        return $this->hasMany(DeclaracionMensual::class, 'empresa_cliente_id');
+    }
 }

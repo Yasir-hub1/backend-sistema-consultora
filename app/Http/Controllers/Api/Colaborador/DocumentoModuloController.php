@@ -119,7 +119,6 @@ class DocumentoModuloController extends ApiController
         $request->validate([
             'archivo' => ['required', 'file', 'max:10240'],
             'tipo_documento_id' => ['required', 'integer', 'exists:tipos_documento,id'],
-            'periodo' => ['nullable', 'string', 'max:20'],
             'observacion' => ['nullable', 'string'],
         ]);
 
@@ -161,7 +160,7 @@ class DocumentoModuloController extends ApiController
             'ruta_archivo' => $stored,
             'formato' => $ext,
             'tamano_bytes' => $file->getSize(),
-            'periodo' => $request->input('periodo'),
+            'periodo' => null,
             'observacion' => $request->input('observacion'),
             'es_vigente' => true,
             'subido_por' => $colab?->id,

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\Consultora;
+namespace App\Http\Controllers\Api\EmpresaCliente;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Models\Alerta;
@@ -11,14 +11,15 @@ class AlertaController extends ApiController
 {
     public function index(Request $request): JsonResponse
     {
-        $e = $request->user()->empresaConsultoraTitular;
-        if (! $e) {
-            return $this->fail('Sin consultora.', 403);
+        $empresa = $request->user()->empresaClienteComoUsuario;
+        if (! $empresa) {
+            return $this->fail('Sin empresa asociada.', 403);
         }
 
         $q = Alerta::query()
-            ->where('consultora_id', $e->id)
-            ->where('modulo', '!=', 'asignacion_empresa');
+            ->where('consultora_id', $empresa->consultora_id)
+            ->where('empresa_id', $empresa->id)
+            ->where('modulo', 'declaracion_mensual');
 
         if ($request->has('resuelta')) {
             $q->where('resuelta', filter_var($request->get('resuelta'), FILTER_VALIDATE_BOOLEAN));
@@ -26,14 +27,9 @@ class AlertaController extends ApiController
         if ($request->has('leida')) {
             $q->where('leida', filter_var($request->get('leida'), FILTER_VALIDATE_BOOLEAN));
         }
-        if ($n = $request->get('nivel')) {
-            $q->where('nivel', $n);
-        }
-        if ($m = $request->get('modulo')) {
-            $q->where('modulo', $m);
-        }
+
         $p = $q->orderByRaw("CASE nivel WHEN 'urgente' THEN 0 ELSE 1 END")
-            ->orderBy('fecha_vencimiento')
+            ->orderByDesc('creado_en')
             ->paginate(min((int) $request->get('per_page', 20), 100));
 
         return $this->ok([
@@ -46,15 +42,16 @@ class AlertaController extends ApiController
 
     public function marcarLeida(Request $request, int $id): JsonResponse
     {
-        $e = $request->user()->empresaConsultoraTitular;
-        if (! $e) {
-            return $this->fail('Sin consultora.', 403);
+        $empresa = $request->user()->empresaClienteComoUsuario;
+        if (! $empresa) {
+            return $this->fail('Sin empresa asociada.', 403);
         }
 
         $alerta = Alerta::query()
             ->whereKey($id)
-            ->where('consultora_id', $e->id)
-            ->where('modulo', '!=', 'asignacion_empresa')
+            ->where('consultora_id', $empresa->consultora_id)
+            ->where('empresa_id', $empresa->id)
+            ->where('modulo', 'declaracion_mensual')
             ->first();
         if (! $alerta) {
             return $this->fail('Alerta no encontrada.', 404);
@@ -69,14 +66,15 @@ class AlertaController extends ApiController
 
     public function marcarTodasLeidas(Request $request): JsonResponse
     {
-        $e = $request->user()->empresaConsultoraTitular;
-        if (! $e) {
-            return $this->fail('Sin consultora.', 403);
+        $empresa = $request->user()->empresaClienteComoUsuario;
+        if (! $empresa) {
+            return $this->fail('Sin empresa asociada.', 403);
         }
 
         $n = Alerta::query()
-            ->where('consultora_id', $e->id)
-            ->where('modulo', '!=', 'asignacion_empresa')
+            ->where('consultora_id', $empresa->consultora_id)
+            ->where('empresa_id', $empresa->id)
+            ->where('modulo', 'declaracion_mensual')
             ->where('leida', false)
             ->update(['leida' => true, 'leida_en' => now()]);
 

@@ -253,6 +253,17 @@ class EmpresaClienteController extends ApiController
             $emp->update(['usuario_id' => $u->id]);
         }
 
+        $this->registrarAlertaPortalEmpresa(
+            $cid,
+            $emp->id,
+            $accesoHabilitado
+                ? 'Acceso al portal habilitado'
+                : 'Acceso al portal creado como suspendido',
+            $accesoHabilitado
+                ? 'Tu empresa ya tiene acceso al portal. Debes cambiar la contraseña en el primer ingreso.'
+                : 'Se creó el acceso de tu empresa al portal, pero se encuentra suspendido hasta activación de la consultora.'
+        );
+
         return $this->ok([
             'nombre_usuario' => $u->nombre_usuario,
             'correo' => $correo,
@@ -281,6 +292,7 @@ class EmpresaClienteController extends ApiController
         }
 
         $u = $emp->usuario;
+        $estadoPrevio = $u->estado;
 
         DB::transaction(function () use ($u, $data) {
             if ($data['acceso_habilitado']) {
@@ -301,8 +313,22 @@ class EmpresaClienteController extends ApiController
             }
         });
 
+        $estadoActual = $u->fresh()->estado;
+        if ($estadoPrevio !== $estadoActual) {
+            $this->registrarAlertaPortalEmpresa(
+                $cid,
+                $emp->id,
+                $estadoActual === 'inactivo'
+                    ? 'Acceso al portal suspendido'
+                    : 'Acceso al portal reactivado',
+                $estadoActual === 'inactivo'
+                    ? 'La consultora suspendió temporalmente el acceso al portal de tu empresa.'
+                    : 'La consultora reactivó el acceso al portal de tu empresa.'
+            );
+        }
+
         return $this->ok([
-            'acceso_portal_habilitado' => $u->fresh()->estado !== 'inactivo',
+            'acceso_portal_habilitado' => $estadoActual !== 'inactivo',
         ], 'Acceso al portal actualizado');
     }
 
@@ -365,6 +391,12 @@ class EmpresaClienteController extends ApiController
                     'titulo' => 'Nueva empresa asignada',
                     'descripcion' => "Se te asignó la empresa cliente {$emp->nombre} para gestión de personal y documentos.",
                     'generada_auto' => true,
+                    'contexto' => [
+                        'paths' => [
+                            'colaborador' => '/colaborador/empresas/'.$emp->id.'/personal',
+                            'consultora' => '/consultora/mis-empresas/'.$emp->id,
+                        ],
+                    ],
                 ]);
             }
         }
@@ -387,5 +419,28 @@ class EmpresaClienteController extends ApiController
         $ap = array_pop($parts);
 
         return [implode(' ', $parts), $ap];
+    }
+
+    private function registrarAlertaPortalEmpresa(
+        int $consultoraId,
+        int $empresaId,
+        string $titulo,
+        string $descripcion
+    ): void {
+        Alerta::create([
+            'consultora_id' => $consultoraId,
+            'empresa_id' => $empresaId,
+            'modulo' => 'acceso_portal',
+            'nivel' => 'normal',
+            'titulo' => $titulo,
+            'descripcion' => $descripcion,
+            'generada_auto' => true,
+            'contexto' => [
+                'paths' => [
+                    'consultora' => '/consultora/mis-empresas/'.$empresaId,
+                    'empresa_cliente' => '/empresa-cliente/dashboard',
+                ],
+            ],
+        ]);
     }
 }

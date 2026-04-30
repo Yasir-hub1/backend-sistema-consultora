@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Sesiones del dominio LaboraConsult (JWT / tokens).
+ * Sesiones del dominio Consult-360 (JWT / tokens).
  * No confundir con la tabla "sessions" del driver de sesión web de Laravel.
  */
 return new class extends Migration

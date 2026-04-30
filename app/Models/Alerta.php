@@ -27,9 +27,12 @@ class Alerta extends Model
         'descripcion',
         'fecha_vencimiento',
         'resuelta',
+        'leida',
+        'leida_en',
         'resuelta_por',
         'resuelta_en',
         'generada_auto',
+        'contexto',
         'creado_en',
     ];
 
@@ -38,8 +41,11 @@ class Alerta extends Model
         return [
             'fecha_vencimiento' => 'date',
             'resuelta' => 'boolean',
+            'leida' => 'boolean',
+            'leida_en' => 'datetime',
             'resuelta_en' => 'datetime',
             'generada_auto' => 'boolean',
+            'contexto' => 'array',
             'creado_en' => 'datetime',
         ];
     }

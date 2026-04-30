@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Sesión de acceso (token) del dominio LaboraConsult.
+ * Sesión de acceso (token) del dominio Consult-360.
  *
  * No confundir con la tabla "sessions" que usa el driver de sesión de Laravel.
  */
