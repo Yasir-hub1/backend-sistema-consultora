@@ -16,14 +16,15 @@ use App\Http\Controllers\Api\Consultora\ConfiguracionController;
 use App\Http\Controllers\Api\Consultora\EmpresaClienteController as ConsultoraEmpresaClienteController;
 use App\Http\Controllers\Api\Consultora\MiEquipoController;
 use App\Http\Controllers\Api\Consultora\ReporteDeclaracionController;
+use App\Http\Controllers\Api\Consultora\ReporteResumenAportesController;
 use App\Http\Controllers\Api\Consultora\TiposDocumentoController;
-use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\EmpresaCliente\AlertaController as EmpresaClienteAlertaController;
 use App\Http\Controllers\Api\EmpresaCliente\DashboardController as EmpresaClienteDashboardController;
 use App\Http\Controllers\Api\EmpresaCliente\DeclaracionMensualController as EmpresaClienteDeclaracionMensualController;
 use App\Http\Controllers\Api\EmpresaCliente\DocumentoDescargaController;
 use App\Http\Controllers\Api\EmpresaCliente\MiConsultoraController;
 use App\Http\Controllers\Api\EmpresaCliente\PersonalController as EmpresaClientePersonalController;
+use App\Http\Controllers\Api\PushSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [LaboraAuthController::class, 'login']);
@@ -81,6 +82,8 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:consultora'])->prefix('consulto
     Route::get('/reportes/declaraciones/{id}/vista-previa', [ReporteDeclaracionController::class, 'vistaPrevia'])->whereNumber('id');
     Route::get('/reportes/declaraciones/{id}/descargar', [ReporteDeclaracionController::class, 'descargar'])->whereNumber('id');
     Route::post('/reportes/declaraciones/exportar-pdf', [ReporteDeclaracionController::class, 'exportarPdf']);
+    Route::get('/reportes/resumen-aportes', [ReporteResumenAportesController::class, 'datos']);
+    Route::get('/reportes/resumen-aportes/pdf', [ReporteResumenAportesController::class, 'pdf']);
 });
 
 Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->prefix('colaborador')->group(function () {
