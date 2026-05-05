@@ -7,6 +7,7 @@ use App\Models\Documento;
 use App\Models\EmpresaCliente;
 use App\Models\Personal;
 use App\Models\TipoDocumento;
+use App\Services\ColaboradorAutorizacionService;
 use App\Services\CumplimientoModuloService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -107,6 +108,14 @@ class DocumentoModuloController extends ApiController
 
         if (! $this->puede($request, $empresaClienteId)) {
             return $this->fail('Sin acceso', 403);
+        }
+
+        if (! ColaboradorAutorizacionService::puedeSubirDocumentosEnModulo(
+            $request->user(),
+            $empresaClienteId,
+            $modulo
+        )) {
+            return $this->fail('No tienes permiso para subir documentos en este módulo.', 403);
         }
 
         $per = Personal::query()->where('empresa_id', $empresaClienteId)->find($personalId);

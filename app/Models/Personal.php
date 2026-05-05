@@ -49,6 +49,8 @@ class Personal extends Model
         'aviso_luz_agua_archivo_nombre',
         'croquis_archivo_path',
         'croquis_archivo_nombre',
+        'certificado_nacimiento_archivo_path',
+        'certificado_nacimiento_archivo_nombre',
         'contactos_referencia',
         'correo_electronico',
         'cuenta_bancaria',

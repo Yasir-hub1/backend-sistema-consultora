@@ -119,13 +119,13 @@ class Usuario extends Authenticatable
         ];
 
         if ($this->tipo === 'colaborador') {
-            $col = $this->relationLoaded('colaborador')
-                ? $this->colaborador
-                : $this->colaborador()->with('permisosPorModulo')->first();
+            // Siempre leer de BD: si se usa la relación en memoria, los permisos quedan obsoletos
+            // tras actualizarlos desde el portal consultora (Mi equipo).
+            $col = Colaborador::query()
+                ->where('usuario_id', $this->id)
+                ->with('permisosPorModulo')
+                ->first();
             if ($col) {
-                if (! $col->relationLoaded('permisosPorModulo')) {
-                    $col->load('permisosPorModulo');
-                }
                 $permisos = $col->permisosPorModulo;
                 $base['colaborador'] = [
                     'id' => $col->id,
@@ -143,8 +143,8 @@ class Usuario extends Authenticatable
                             'puede_invitar_empresa' => (bool) $p->puede_invitar_empresa,
                         ];
                     })->values()->all(),
-                    'puede_editar_personal' => $permisos->contains(fn ($p) => $p->puede_editar_personal),
-                    'puede_registrar_personal' => $permisos->contains(fn ($p) => $p->puede_registrar_personal),
+                    'puede_editar_personal' => $permisos->contains(fn ($p) => (bool) $p->puede_editar_personal),
+                    'puede_registrar_personal' => $permisos->contains(fn ($p) => (bool) $p->puede_registrar_personal),
                 ];
             }
         }

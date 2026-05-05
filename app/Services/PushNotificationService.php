@@ -95,8 +95,11 @@ class PushNotificationService
             'asignacion_empresa' => collect([
                 $alerta->colaboradorAsignado?->usuario_id,
             ]),
-            // Portal empresa-cliente: solo avisos push por declaraciones mensuales cargadas.
+            // Portal empresa-cliente: avisos por declaraciones cargadas por la consultora/colaborador.
             'declaracion_mensual' => collect([
+                $alerta->empresaCliente?->usuario_id,
+            ]),
+            'declaracion_aguinaldo' => collect([
                 $alerta->empresaCliente?->usuario_id,
             ]),
             'registro_personal', 'acceso_portal' => collect([

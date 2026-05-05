@@ -74,6 +74,10 @@ class PersonalController extends ApiController
             'croquis_archivo_url',
             $per->croquis_archivo_path ? Storage::url($per->croquis_archivo_path) : null
         );
+        $per->setAttribute(
+            'certificado_nacimiento_archivo_url',
+            $per->certificado_nacimiento_archivo_path ? Storage::url($per->certificado_nacimiento_archivo_path) : null
+        );
 
         return $per;
     }
@@ -210,7 +214,7 @@ class PersonalController extends ApiController
             'apellidos' => ['required', 'string', 'max:100'],
             'ci' => ['required', 'string', 'max:20'],
             'fecha_nacimiento' => ['nullable', 'date'],
-            'cargo' => ['required', 'string', 'max:150'],
+            'cargo' => ['nullable', 'string', 'max:150'],
             'fecha_ingreso' => ['required', 'date'],
             'afp_id' => ['nullable'],
             'nro_afp' => ['nullable', 'string', 'max:50'],
@@ -220,10 +224,11 @@ class PersonalController extends ApiController
             'cuenta_bancaria' => ['nullable', 'string', 'max:120'],
             'contactos_referencia' => ['nullable', 'array', 'min:2', 'max:3'],
             'contactos_referencia.*' => ['nullable', 'string', 'max:160'],
-            'curriculum_archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
-            'licencia_conducir_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
-            'aviso_luz_agua_archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
-            'croquis_archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'curriculum_archivo' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'licencia_conducir_archivo' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'aviso_luz_agua_archivo' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'croquis_archivo' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'certificado_nacimiento_archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
         ]);
 
         if (Personal::query()->where('empresa_id', $empresaClienteId)->where('ci', $data['ci'])->exists()) {
@@ -239,7 +244,7 @@ class PersonalController extends ApiController
             'apellidos' => $data['apellidos'],
             'ci' => $data['ci'],
             'fecha_nacimiento' => $data['fecha_nacimiento'] ?? null,
-            'cargo' => $data['cargo'],
+            'cargo' => $data['cargo'] ?? 'Personal',
             'fecha_ingreso' => $data['fecha_ingreso'],
             'correo_electronico' => $data['correo_electronico'] ?? null,
             'cuenta_bancaria' => $data['cuenta_bancaria'] ?? null,
@@ -250,6 +255,7 @@ class PersonalController extends ApiController
         $licencia = $this->saveLegajoArchivo($request->file('licencia_conducir_archivo'), $empresaClienteId, $per->id, 'licencia');
         $aviso = $this->saveLegajoArchivo($request->file('aviso_luz_agua_archivo'), $empresaClienteId, $per->id, 'aviso_luz_agua');
         $croquis = $this->saveLegajoArchivo($request->file('croquis_archivo'), $empresaClienteId, $per->id, 'croquis');
+        $certNacimiento = $this->saveLegajoArchivo($request->file('certificado_nacimiento_archivo'), $empresaClienteId, $per->id, 'certificado_nacimiento');
 
         if ($curriculum) {
             $per->curriculum_archivo_path = $curriculum['path'];
@@ -266,6 +272,10 @@ class PersonalController extends ApiController
         if ($croquis) {
             $per->croquis_archivo_path = $croquis['path'];
             $per->croquis_archivo_nombre = $croquis['nombre'];
+        }
+        if ($certNacimiento) {
+            $per->certificado_nacimiento_archivo_path = $certNacimiento['path'];
+            $per->certificado_nacimiento_archivo_nombre = $certNacimiento['nombre'];
         }
         $per->save();
 
@@ -356,10 +366,11 @@ class PersonalController extends ApiController
             'cuenta_bancaria' => ['nullable', 'string', 'max:120'],
             'contactos_referencia' => ['nullable', 'array', 'min:2', 'max:3'],
             'contactos_referencia.*' => ['nullable', 'string', 'max:160'],
-            'curriculum_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
-            'licencia_conducir_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
-            'aviso_luz_agua_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
-            'croquis_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'curriculum_archivo' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'licencia_conducir_archivo' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'aviso_luz_agua_archivo' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'croquis_archivo' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'certificado_nacimiento_archivo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
         ]);
 
         if ($data === []) {
@@ -402,6 +413,12 @@ class PersonalController extends ApiController
             Storage::disk('public')->delete((string) $per->croquis_archivo_path);
             $per->croquis_archivo_path = $croquis['path'];
             $per->croquis_archivo_nombre = $croquis['nombre'];
+        }
+        $certNacimiento = $this->saveLegajoArchivo($request->file('certificado_nacimiento_archivo'), $empresaClienteId, $per->id, 'certificado_nacimiento');
+        if ($certNacimiento) {
+            Storage::disk('public')->delete((string) $per->certificado_nacimiento_archivo_path);
+            $per->certificado_nacimiento_archivo_path = $certNacimiento['path'];
+            $per->certificado_nacimiento_archivo_nombre = $certNacimiento['nombre'];
         }
 
         $per->save();

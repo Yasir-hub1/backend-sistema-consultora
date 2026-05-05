@@ -71,7 +71,7 @@ class LaboraAuthController extends ApiController
 
     public function perfil(Request $request): JsonResponse
     {
-        $u = $request->user();
+        $u = $request->user()->fresh();
 
         return $this->ok([
             'user' => $u->toApiArray(),

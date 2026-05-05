@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class MiEquipoController extends ApiController
 {
@@ -215,7 +216,7 @@ class MiEquipoController extends ApiController
         $payload = $request->validate([
             'puede_editar_empresa_cliente' => ['sometimes', 'boolean'],
             'permisos' => ['required', 'array'],
-            'permisos.*.modulo' => ['required', 'string'],
+            'permisos.*.modulo' => ['required', 'string', Rule::in(['afp', 'caja', 'ministerio'])],
             'permisos.*.puede_ver' => ['sometimes', 'boolean'],
             'permisos.*.puede_registrar_personal' => ['sometimes', 'boolean'],
             'permisos.*.puede_editar_personal' => ['sometimes', 'boolean'],

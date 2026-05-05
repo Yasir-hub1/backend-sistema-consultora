@@ -68,6 +68,33 @@ class DeclaracionMensualController extends ApiController
         );
     }
 
+    public function vistaPrevia(Request $request, int $id): StreamedResponse|BinaryFileResponse|JsonResponse
+    {
+        $emp = $this->empresa($request);
+        if (! $emp) {
+            return $this->fail('Sin empresa asociada.', 403);
+        }
+
+        $dec = DeclaracionMensual::query()
+            ->where('empresa_cliente_id', $emp->id)
+            ->whereKey($id)
+            ->first();
+        if (! $dec) {
+            return $this->fail('No encontrada', 404);
+        }
+        if (! Storage::disk('local')->exists($dec->ruta_archivo)) {
+            return $this->fail('Archivo no disponible', 404);
+        }
+
+        $path = Storage::disk('local')->path($dec->ruta_archivo);
+        $mime = mime_content_type($path) ?: 'application/octet-stream';
+
+        return response()->file($path, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'inline; filename="'.$dec->nombre_original.'"',
+        ]);
+    }
+
     /**
      * Descarga varias declaraciones en un ZIP. Body JSON: { "meses": ["2026-01", "2026-07"] }
      */

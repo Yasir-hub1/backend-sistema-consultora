@@ -52,11 +52,6 @@ class DeclaracionMensualController extends ApiController
         }
 
         $u = $request->user();
-        $puedeSubir = ColaboradorAutorizacionService::puedeEditarPersonal($u, $empresaClienteId)
-            || ColaboradorAutorizacionService::puedeRegistrarPersonal($u, $empresaClienteId);
-        if (! $puedeSubir) {
-            return $this->fail('No tienes permiso para cargar declaraciones.', 403);
-        }
 
         $request->validate([
             'modulo' => ['required', 'in:afp,caja,ministerio'],
@@ -70,10 +65,14 @@ class DeclaracionMensualController extends ApiController
             'monto_seprec_registro_poder_consultora' => ['nullable', 'numeric', 'min:0'],
         ]);
 
+        $modulo = $request->string('modulo')->toString();
+        if (! ColaboradorAutorizacionService::puedeCargarDeclaracionMensual($u, $empresaClienteId, $modulo)) {
+            return $this->fail('No tienes permiso para cargar declaraciones de este módulo.', 403);
+        }
+
         $parts = explode('-', $request->string('mes_gestion')->toString());
         $anio = (int) $parts[0];
         $mes = (int) $parts[1];
-        $modulo = $request->string('modulo')->toString();
 
         $file = $request->file('archivo');
         $ext = strtolower($file->getClientOriginalExtension());
@@ -95,6 +94,8 @@ class DeclaracionMensualController extends ApiController
 
         $stored = $file->store($dir, 'local');
 
+        $montos = $this->montosNormalizadosParaModulo($modulo, $request);
+
         $row = DeclaracionMensual::query()->updateOrCreate(
             [
                 'empresa_cliente_id' => $empresaClienteId,
@@ -103,12 +104,12 @@ class DeclaracionMensualController extends ApiController
                 'modulo' => $modulo,
             ],
             [
-                'monto_total_ganado' => $request->input('monto_total_ganado'),
-                'monto_deposito_cns' => $request->input('monto_deposito_cns'),
-                'monto_aportes_gestoras' => $request->input('monto_aportes_gestoras'),
-                'monto_aporte_solidario_gestora' => $request->input('monto_aporte_solidario_gestora'),
-                'monto_planilla_mensual_mdt' => $request->input('monto_planilla_mensual_mdt'),
-                'monto_seprec_registro_poder_consultora' => $request->input('monto_seprec_registro_poder_consultora'),
+                'monto_total_ganado' => $montos['monto_total_ganado'],
+                'monto_deposito_cns' => $montos['monto_deposito_cns'],
+                'monto_aportes_gestoras' => $montos['monto_aportes_gestoras'],
+                'monto_aporte_solidario_gestora' => $montos['monto_aporte_solidario_gestora'],
+                'monto_planilla_mensual_mdt' => $montos['monto_planilla_mensual_mdt'],
+                'monto_seprec_registro_poder_consultora' => $montos['monto_seprec_registro_poder_consultora'],
                 'nombre_archivo' => basename($stored),
                 'nombre_original' => $file->getClientOriginalName(),
                 'ruta_archivo' => $stored,
@@ -210,6 +211,36 @@ class DeclaracionMensualController extends ApiController
     private function nombreArchivoSeguro(string $name): string
     {
         return str_replace(['"', "\r", "\n"], '', $name);
+    }
+
+    /**
+     * Solo persisten montos del módulo elegido; el resto queda en null para reportes por período limpios.
+     *
+     * @return array<string, float|string|null>
+     */
+    private function montosNormalizadosParaModulo(string $modulo, Request $request): array
+    {
+        $todas = [
+            'monto_total_ganado',
+            'monto_deposito_cns',
+            'monto_aportes_gestoras',
+            'monto_aporte_solidario_gestora',
+            'monto_planilla_mensual_mdt',
+            'monto_seprec_registro_poder_consultora',
+        ];
+        $permitidas = match ($modulo) {
+            'afp' => ['monto_aportes_gestoras', 'monto_aporte_solidario_gestora'],
+            'caja' => ['monto_deposito_cns'],
+            'ministerio' => ['monto_total_ganado'],
+            default => [],
+        };
+        $out = array_fill_keys($todas, null);
+        foreach ($permitidas as $clave) {
+            $v = $request->input($clave);
+            $out[$clave] = ($v === '' || $v === null) ? null : $v;
+        }
+
+        return $out;
     }
 
     private function serializar(DeclaracionMensual $d): array
