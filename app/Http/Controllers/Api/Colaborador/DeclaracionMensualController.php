@@ -231,7 +231,11 @@ class DeclaracionMensualController extends ApiController
         $permitidas = match ($modulo) {
             'afp' => ['monto_aportes_gestoras', 'monto_aporte_solidario_gestora'],
             'caja' => ['monto_deposito_cns'],
-            'ministerio' => ['monto_total_ganado'],
+            'ministerio' => [
+                'monto_total_ganado',
+                'monto_planilla_mensual_mdt',
+                'monto_seprec_registro_poder_consultora',
+            ],
             default => [],
         };
         $out = array_fill_keys($todas, null);

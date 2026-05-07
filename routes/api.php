@@ -70,6 +70,7 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:consultora'])->prefix('consulto
     Route::get('/empresas-cliente', [ConsultoraEmpresaClienteController::class, 'index']);
     Route::post('/empresas-cliente', [ConsultoraEmpresaClienteController::class, 'store']);
     Route::get('/empresas-cliente/{id}', [ConsultoraEmpresaClienteController::class, 'show'])->whereNumber('id');
+    Route::put('/empresas-cliente/{id}', [ConsultoraEmpresaClienteController::class, 'update'])->whereNumber('id');
     Route::patch('/empresas-cliente/{id}', [ConsultoraEmpresaClienteController::class, 'update'])->whereNumber('id');
     Route::post('/empresas-cliente/{id}/generar-acceso', [ConsultoraEmpresaClienteController::class, 'generarAcceso'])->whereNumber('id');
     Route::patch('/empresas-cliente/{id}/acceso-portal', [ConsultoraEmpresaClienteController::class, 'updateAccesoPortal'])->whereNumber('id');

@@ -161,7 +161,10 @@ class EmpresaClienteController extends ApiController
             'departamento' => ['nullable', 'string', 'max:100'],
             'direccion' => ['nullable', 'string'],
             'telefono' => ['nullable', 'string', 'max:20'],
+            'correo_contacto' => ['nullable', 'email', 'max:150'],
             'correo_empresa' => ['nullable', 'email', 'max:150'],
+            'representante_nombre' => ['nullable', 'string', 'max:200'],
+            'representante_ci' => ['nullable', 'string', 'max:20'],
             'actividad_economica' => ['nullable', 'string', 'max:200'],
             'matricula_comercio' => ['nullable', 'string', 'max:50'],
             'rep_legal_nombres' => ['nullable', 'string', 'max:100'],
@@ -184,6 +187,20 @@ class EmpresaClienteController extends ApiController
                 return $this->fail('NIT ya registrado para esta consultora.', 422);
             }
         }
+
+        $rep = $this->splitNombre($data['representante_nombre'] ?? '');
+        if (array_key_exists('representante_nombre', $data)) {
+            $data['rep_legal_nombres'] = $data['rep_legal_nombres'] ?? $rep[0] ?? null;
+            $data['rep_legal_apellidos'] = $data['rep_legal_apellidos'] ?? $rep[1] ?? null;
+        }
+        if (array_key_exists('representante_ci', $data) && ! array_key_exists('rep_legal_ci', $data)) {
+            $data['rep_legal_ci'] = $data['representante_ci'];
+        }
+        if (array_key_exists('correo_contacto', $data) && ! array_key_exists('correo_empresa', $data)) {
+            $data['correo_empresa'] = $data['correo_contacto'];
+        }
+
+        unset($data['representante_nombre'], $data['representante_ci'], $data['correo_contacto']);
 
         $emp->fill($data);
         $emp->save();
