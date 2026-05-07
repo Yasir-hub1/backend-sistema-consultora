@@ -17,7 +17,10 @@ class EmpresaClienteController extends ApiController
 {
     private function consultoraId(Request $request): ?int
     {
-        return $request->user()->empresaConsultoraTitular?->id;
+        $u = $request->user();
+
+        return $u->empresaConsultoraTitular?->id
+            ?? $u->colaborador?->consultora_id;
     }
 
     public function index(Request $request): JsonResponse

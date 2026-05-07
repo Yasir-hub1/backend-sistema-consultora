@@ -79,6 +79,7 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:consultora'])->prefix('consulto
     Route::get('/alertas', [AlertaController::class, 'index']);
     Route::patch('/alertas/marcar-todas-leidas', [AlertaController::class, 'marcarTodasLeidas']);
     Route::patch('/alertas/{id}/marcar-leida', [AlertaController::class, 'marcarLeida'])->whereNumber('id');
+    Route::get('/reportes/empresas-cliente', [ReporteDeclaracionController::class, 'empresas']);
     Route::get('/reportes/declaraciones', [ReporteDeclaracionController::class, 'index']);
     Route::get('/reportes/declaraciones/{id}/vista-previa', [ReporteDeclaracionController::class, 'vistaPrevia'])->whereNumber('id');
     Route::get('/reportes/declaraciones/{id}/descargar', [ReporteDeclaracionController::class, 'descargar'])->whereNumber('id');

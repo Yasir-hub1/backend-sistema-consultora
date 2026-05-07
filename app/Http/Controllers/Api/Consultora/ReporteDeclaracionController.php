@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api\Consultora;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Models\DeclaracionAguinaldo;
 use App\Models\DeclaracionMensual;
+use App\Models\EmpresaCliente;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -13,38 +16,143 @@ use Symfony\Component\Process\Process;
 
 class ReporteDeclaracionController extends ApiController
 {
+    private function consultoraId(Request $request): ?int
+    {
+        $u = $request->user();
+
+        return $u->empresaConsultoraTitular?->id
+            ?? $u->colaborador?->consultora_id;
+    }
+
+    public function empresas(Request $request): JsonResponse
+    {
+        $consultoraId = $this->consultoraId($request);
+        if (! $consultoraId) {
+            return $this->fail('Sin consultora asociada.', 403);
+        }
+
+        $rows = EmpresaCliente::query()
+            ->where('consultora_id', $consultoraId)
+            ->orderBy('nombre')
+            ->orderBy('razon_social')
+            ->get(['id', 'nombre', 'razon_social', 'nit'])
+            ->map(fn (EmpresaCliente $e) => [
+                'id' => $e->id,
+                'nombre' => $e->nombre,
+                'razon_social' => $e->razon_social,
+                'nit' => $e->nit,
+            ])
+            ->values()
+            ->all();
+
+        return $this->ok($rows);
+    }
+
     public function index(Request $request): JsonResponse
     {
-        $consultora = $request->user()->empresaConsultoraTitular;
-        if (! $consultora) {
+        $consultoraId = $this->consultoraId($request);
+        if (! $consultoraId) {
             return $this->fail('Sin consultora asociada.', 403);
         }
 
         $request->validate([
             'mes_gestion' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'anio' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+            'empresa_cliente_id' => ['nullable', 'integer'],
             'modulo' => ['nullable', 'in:afp,caja,ministerio'],
+            'tipo_declaracion' => ['nullable', 'in:mensual,aguinaldo,todos'],
+            'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
 
-        $q = DeclaracionMensual::query()
-            ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultora->id))
-            ->with(['empresaCliente:id,nombre,razon_social,nit']);
+        $tipo = (string) ($request->query('tipo_declaracion') ?: 'mensual');
+        $perPage = (int) $request->get('per_page', 50);
+        $page = max((int) $request->get('page', 1), 1);
 
-        if ($mg = $request->string('mes_gestion')->toString()) {
-            [$anio, $mes] = array_map('intval', explode('-', $mg));
-            $q->where('anio', $anio)->where('mes', $mes);
-        }
-        if ($modulo = $request->query('modulo')) {
-            $q->where('modulo', $modulo);
+        if ($tipo === 'mensual') {
+            $q = DeclaracionMensual::query()
+                ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
+                ->with(['empresaCliente:id,nombre,razon_social,nit']);
+
+            if ($mg = $request->string('mes_gestion')->toString()) {
+                [$anio, $mes] = array_map('intval', explode('-', $mg));
+                $q->where('anio', $anio)->where('mes', $mes);
+            }
+            if ($modulo = $request->query('modulo')) {
+                $q->where('modulo', $modulo);
+            }
+            if ($empresaId = $request->query('empresa_cliente_id')) {
+                $q->where('empresa_cliente_id', (int) $empresaId);
+            }
+
+            $p = $q->orderByDesc('anio')
+                ->orderByDesc('mes')
+                ->orderBy('modulo')
+                ->paginate($perPage);
+
+            return $this->ok([
+                'data' => collect($p->items())->map(fn (DeclaracionMensual $d) => $this->serializarMensual($d))->all(),
+                'current_page' => $p->currentPage(),
+                'last_page' => $p->lastPage(),
+                'total' => $p->total(),
+            ]);
         }
 
-        $p = $q->orderByDesc('anio')
-            ->orderByDesc('mes')
-            ->orderBy('modulo')
-            ->paginate((int) $request->get('per_page', 50));
+        if ($tipo === 'aguinaldo') {
+            $q = DeclaracionAguinaldo::query()
+                ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
+                ->with(['empresaCliente:id,nombre,razon_social,nit']);
+            if ($anio = $request->query('anio')) {
+                $q->where('anio', (int) $anio);
+            }
+            if ($empresaId = $request->query('empresa_cliente_id')) {
+                $q->where('empresa_cliente_id', (int) $empresaId);
+            }
+
+            $p = $q->orderByDesc('anio')->paginate($perPage);
+
+            return $this->ok([
+                'data' => collect($p->items())->map(fn (DeclaracionAguinaldo $d) => $this->serializarAguinaldo($d))->all(),
+                'current_page' => $p->currentPage(),
+                'last_page' => $p->lastPage(),
+                'total' => $p->total(),
+            ]);
+        }
+
+        $mensuales = DeclaracionMensual::query()
+            ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
+            ->with(['empresaCliente:id,nombre,razon_social,nit'])
+            ->when($request->string('mes_gestion')->toString() !== '', function ($q) use ($request) {
+                [$anio, $mes] = array_map('intval', explode('-', $request->string('mes_gestion')->toString()));
+                $q->where('anio', $anio)->where('mes', $mes);
+            })
+            ->when($request->query('modulo'), fn ($q, $m) => $q->where('modulo', $m))
+            ->when($request->query('empresa_cliente_id'), fn ($q, $eid) => $q->where('empresa_cliente_id', (int) $eid))
+            ->get()
+            ->map(fn (DeclaracionMensual $d) => $this->serializarMensual($d));
+
+        $aguinaldos = DeclaracionAguinaldo::query()
+            ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
+            ->with(['empresaCliente:id,nombre,razon_social,nit'])
+            ->when($request->query('anio'), fn ($q, $a) => $q->where('anio', (int) $a))
+            ->when($request->query('empresa_cliente_id'), fn ($q, $eid) => $q->where('empresa_cliente_id', (int) $eid))
+            ->get()
+            ->map(fn (DeclaracionAguinaldo $d) => $this->serializarAguinaldo($d));
+
+        $rows = $mensuales
+            ->concat($aguinaldos)
+            ->sortByDesc(fn (array $r) => $r['fecha_subida'] ?? '')
+            ->values();
+
+        $p = new LengthAwarePaginator(
+            $rows->forPage($page, $perPage)->values()->all(),
+            $rows->count(),
+            $perPage,
+            $page
+        );
 
         return $this->ok([
-            'data' => collect($p->items())->map(fn (DeclaracionMensual $d) => $this->serializar($d))->all(),
+            'data' => $p->items(),
             'current_page' => $p->currentPage(),
             'last_page' => $p->lastPage(),
             'total' => $p->total(),
@@ -53,8 +161,8 @@ class ReporteDeclaracionController extends ApiController
 
     public function vistaPrevia(Request $request, int $id): BinaryFileResponse|JsonResponse
     {
-        $doc = $this->resolverDeclaracion($request, $id);
-        if (! $doc instanceof DeclaracionMensual) {
+        $doc = $this->resolverDocumento($request, $id);
+        if (! $doc instanceof DeclaracionMensual && ! $doc instanceof DeclaracionAguinaldo) {
             return $doc;
         }
 
@@ -71,8 +179,8 @@ class ReporteDeclaracionController extends ApiController
 
     public function descargar(Request $request, int $id): StreamedResponse|BinaryFileResponse|JsonResponse
     {
-        $doc = $this->resolverDeclaracion($request, $id);
-        if (! $doc instanceof DeclaracionMensual) {
+        $doc = $this->resolverDocumento($request, $id);
+        if (! $doc instanceof DeclaracionMensual && ! $doc instanceof DeclaracionAguinaldo) {
             return $doc;
         }
 
@@ -86,8 +194,8 @@ class ReporteDeclaracionController extends ApiController
 
     public function exportarPdf(Request $request): BinaryFileResponse|JsonResponse
     {
-        $consultora = $request->user()->empresaConsultoraTitular;
-        if (! $consultora) {
+        $consultoraId = $this->consultoraId($request);
+        if (! $consultoraId) {
             return $this->fail('Sin consultora asociada.', 403);
         }
 
@@ -99,7 +207,7 @@ class ReporteDeclaracionController extends ApiController
         [$anio, $mes] = array_map('intval', explode('-', (string) $request->input('mes_gestion')));
 
         $q = DeclaracionMensual::query()
-            ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultora->id))
+            ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
             ->where('anio', $anio)
             ->where('mes', $mes)
             ->where('formato', 'pdf');
@@ -141,16 +249,29 @@ class ReporteDeclaracionController extends ApiController
         return response()->download($out, $downloadName)->deleteFileAfterSend(true);
     }
 
-    private function resolverDeclaracion(Request $request, int $id): DeclaracionMensual|JsonResponse
+    private function resolverDocumento(Request $request, int $id): DeclaracionMensual|DeclaracionAguinaldo|JsonResponse
     {
-        $consultora = $request->user()->empresaConsultoraTitular;
-        if (! $consultora) {
+        $consultoraId = $this->consultoraId($request);
+        if (! $consultoraId) {
             return $this->fail('Sin consultora asociada.', 403);
+        }
+
+        $tipo = (string) ($request->query('tipo_declaracion') ?: 'mensual');
+        if ($tipo === 'aguinaldo') {
+            $doc = DeclaracionAguinaldo::query()
+                ->whereKey($id)
+                ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
+                ->first();
+            if (! $doc) {
+                return $this->fail('Declaración de aguinaldo no encontrada', 404);
+            }
+
+            return $doc;
         }
 
         $doc = DeclaracionMensual::query()
             ->whereKey($id)
-            ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultora->id))
+            ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
             ->first();
 
         if (! $doc) {
@@ -188,15 +309,35 @@ class ReporteDeclaracionController extends ApiController
         ];
     }
 
-    private function serializar(DeclaracionMensual $d): array
+    private function serializarMensual(DeclaracionMensual $d): array
     {
         return [
             'id' => $d->id,
+            'tipo_declaracion' => 'mensual',
             'empresa_id' => $d->empresa_cliente_id,
             'empresa_nombre' => $d->empresaCliente?->nombre ?: $d->empresaCliente?->razon_social,
             'empresa_nit' => $d->empresaCliente?->nit,
             'mes_gestion' => sprintf('%04d-%02d', $d->anio, $d->mes),
+            'periodo_label' => sprintf('%04d-%02d', $d->anio, $d->mes),
             'modulo' => $d->modulo,
+            'nombre_original' => $d->nombre_original,
+            'formato' => $d->formato,
+            'tamano_bytes' => $d->tamano_bytes,
+            'fecha_subida' => $d->fecha_subida?->toIso8601String(),
+        ];
+    }
+
+    private function serializarAguinaldo(DeclaracionAguinaldo $d): array
+    {
+        return [
+            'id' => $d->id,
+            'tipo_declaracion' => 'aguinaldo',
+            'empresa_id' => $d->empresa_cliente_id,
+            'empresa_nombre' => $d->empresaCliente?->nombre ?: $d->empresaCliente?->razon_social,
+            'empresa_nit' => $d->empresaCliente?->nit,
+            'mes_gestion' => (string) $d->anio,
+            'periodo_label' => 'Gestión '.$d->anio,
+            'modulo' => 'aguinaldo',
             'nombre_original' => $d->nombre_original,
             'formato' => $d->formato,
             'tamano_bytes' => $d->tamano_bytes,
