@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\Consultora\ReporteResumenAportesController;
 use App\Http\Controllers\Api\Consultora\TiposDocumentoController;
 use App\Http\Controllers\Api\EmpresaCliente\AlertaController as EmpresaClienteAlertaController;
 use App\Http\Controllers\Api\EmpresaCliente\DashboardController as EmpresaClienteDashboardController;
+use App\Http\Controllers\Api\EmpresaCliente\DeclaracionAguinaldoController as EmpresaClienteDeclaracionAguinaldoController;
 use App\Http\Controllers\Api\EmpresaCliente\DeclaracionMensualController as EmpresaClienteDeclaracionMensualController;
 use App\Http\Controllers\Api\EmpresaCliente\DocumentoDescargaController;
 use App\Http\Controllers\Api\EmpresaCliente\MiConsultoraController;
@@ -161,5 +162,10 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:empresa_cliente'])->prefix('emp
     Route::get('/declaraciones-mensuales/{id}/vista-previa', [EmpresaClienteDeclaracionMensualController::class, 'vistaPrevia'])
         ->whereNumber('id');
     Route::get('/declaraciones-mensuales/{id}/descargar', [EmpresaClienteDeclaracionMensualController::class, 'descargar'])
+        ->whereNumber('id');
+    Route::get('/declaraciones-aguinaldo', [EmpresaClienteDeclaracionAguinaldoController::class, 'index']);
+    Route::get('/declaraciones-aguinaldo/{id}/vista-previa', [EmpresaClienteDeclaracionAguinaldoController::class, 'vistaPrevia'])
+        ->whereNumber('id');
+    Route::get('/declaraciones-aguinaldo/{id}/descargar', [EmpresaClienteDeclaracionAguinaldoController::class, 'descargar'])
         ->whereNumber('id');
 });
