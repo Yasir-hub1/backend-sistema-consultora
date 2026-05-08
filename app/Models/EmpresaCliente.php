@@ -90,4 +90,14 @@ class EmpresaCliente extends Model
     {
         return $this->hasMany(DeclaracionAguinaldo::class, 'empresa_cliente_id');
     }
+
+    public function documentosEmpresa(): HasMany
+    {
+        return $this->hasMany(EmpresaClienteDocumentoEmpresa::class, 'empresa_cliente_id');
+    }
+
+    public function otrosDocumentosPersonal(): HasMany
+    {
+        return $this->hasMany(EmpresaClienteOtroDocumento::class, 'empresa_cliente_id');
+    }
 }

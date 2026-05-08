@@ -110,11 +110,12 @@ class TiposDocumentoController extends ApiController
         }
 
         $tipo = TipoDocumento::query()
-            ->where('consultora_id', $ec->id)
-            ->find($id);
+            ->where('id', $id)
+            ->visiblesParaConsultora($ec->id)
+            ->first();
 
         if (! $tipo) {
-            return $this->fail('Tipo no encontrado o es de solo lectura (sistema).', 404);
+            return $this->fail('Tipo no encontrado.', 404);
         }
 
         $data = $request->validate([
@@ -131,9 +132,10 @@ class TiposDocumentoController extends ApiController
         $tipo->fill($data);
         $tipo->save();
 
-        $arr = $tipo->fresh()->toArray();
-        $arr['es_sistema'] = false;
-        $arr['editable'] = true;
+        $fresh = $tipo->fresh();
+        $arr = $fresh->toArray();
+        $arr['es_sistema'] = $fresh->consultora_id === null;
+        $arr['editable'] = $fresh->consultora_id !== null;
 
         return $this->ok($arr, 'Tipo actualizado');
     }

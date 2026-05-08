@@ -170,6 +170,33 @@ class ColaboradorAutorizacionService
      * Declaración de aguinaldo (anual, sin módulo): basta con poder declarar en al menos un módulo
      * o editar/registrar legajo.
      */
+    /**
+     * PDFs varios asociados a la empresa desde el listado de personal (colaborador/consultora).
+     */
+    public static function puedeGestionarOtrosDocumentosEmpresa(Usuario $u, int $empresaClienteId): bool
+    {
+        $emp = EmpresaCliente::query()->find($empresaClienteId);
+        if (! $emp) {
+            return false;
+        }
+        if (self::esConsultoraTitularDeEmpresa($u, $emp)) {
+            return true;
+        }
+        if (self::puedeRegistrarPersonal($u, $empresaClienteId)) {
+            return true;
+        }
+        if (self::puedeEditarPersonal($u, $empresaClienteId)) {
+            return true;
+        }
+        foreach (['afp', 'caja', 'ministerio'] as $modulo) {
+            if (self::puedeSubirDocumentosEnModulo($u, $empresaClienteId, $modulo)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function puedeCargarDeclaracionAguinaldo(Usuario $u, int $empresaClienteId): bool
     {
         if (self::puedeEditarPersonal($u, $empresaClienteId) || self::puedeRegistrarPersonal($u, $empresaClienteId)) {

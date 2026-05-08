@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Colaborador\DeclaracionAguinaldoController;
 use App\Http\Controllers\Api\Colaborador\DeclaracionMensualController;
 use App\Http\Controllers\Api\Colaborador\DocumentoModuloController;
 use App\Http\Controllers\Api\Colaborador\EmpresaAsignadaController;
+use App\Http\Controllers\Api\Colaborador\EmpresaClienteOtroDocumentoController;
 use App\Http\Controllers\Api\Colaborador\PersonalController as ColaboradorPersonalController;
 use App\Http\Controllers\Api\Consultora\AlertaController;
 use App\Http\Controllers\Api\Consultora\CatalogoConsultoraController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\Api\EmpresaCliente\DashboardController as EmpresaClient
 use App\Http\Controllers\Api\EmpresaCliente\DeclaracionAguinaldoController as EmpresaClienteDeclaracionAguinaldoController;
 use App\Http\Controllers\Api\EmpresaCliente\DeclaracionMensualController as EmpresaClienteDeclaracionMensualController;
 use App\Http\Controllers\Api\EmpresaCliente\DocumentoDescargaController;
+use App\Http\Controllers\Api\EmpresaCliente\MiEmpresaDocumentoController;
 use App\Http\Controllers\Api\EmpresaCliente\MiConsultoraController;
 use App\Http\Controllers\Api\EmpresaCliente\PersonalController as EmpresaClientePersonalController;
 use App\Http\Controllers\Api\PushSubscriptionController;
@@ -65,6 +67,8 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:consultora'])->prefix('consulto
 
     Route::get('/colaboradores', [MiEquipoController::class, 'index']);
     Route::post('/colaboradores', [MiEquipoController::class, 'store']);
+    Route::get('/colaboradores/plantilla-registro-masivo', [MiEquipoController::class, 'descargarPlantillaRegistroMasivo']);
+    Route::post('/colaboradores/registro-masivo', [MiEquipoController::class, 'cargarRegistroMasivo']);
     Route::put('/colaboradores/{id}/permisos', [MiEquipoController::class, 'updatePermisos'])->whereNumber('id');
     Route::patch('/colaboradores/{id}/acceso', [MiEquipoController::class, 'updateAcceso'])->whereNumber('id');
 
@@ -122,9 +126,27 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->pref
 
     Route::get('/empresas-cliente/{empresaClienteId}/personal', [ColaboradorPersonalController::class, 'index'])->whereNumber('empresaClienteId');
     Route::post('/empresas-cliente/{empresaClienteId}/personal', [ColaboradorPersonalController::class, 'store'])->whereNumber('empresaClienteId');
+    Route::get('/empresas-cliente/{empresaClienteId}/personal/plantilla-registro-masivo', [ColaboradorPersonalController::class, 'descargarPlantillaRegistroMasivo'])
+        ->whereNumber('empresaClienteId');
+    Route::post('/empresas-cliente/{empresaClienteId}/personal/registro-masivo', [ColaboradorPersonalController::class, 'cargarRegistroMasivo'])
+        ->whereNumber('empresaClienteId');
+    Route::get('/empresas-cliente/{empresaClienteId}/otros-documentos', [EmpresaClienteOtroDocumentoController::class, 'index'])
+        ->whereNumber('empresaClienteId');
+    Route::post('/empresas-cliente/{empresaClienteId}/otros-documentos', [EmpresaClienteOtroDocumentoController::class, 'store'])
+        ->whereNumber('empresaClienteId');
+    Route::get('/empresas-cliente/{empresaClienteId}/otros-documentos/{id}/vista-previa', [EmpresaClienteOtroDocumentoController::class, 'vistaPrevia'])
+        ->whereNumber('empresaClienteId')
+        ->whereNumber('id');
+    Route::get('/empresas-cliente/{empresaClienteId}/otros-documentos/{id}/descargar', [EmpresaClienteOtroDocumentoController::class, 'descargar'])
+        ->whereNumber('empresaClienteId')
+        ->whereNumber('id');
     Route::get('/empresas-cliente/{empresaClienteId}/personal/{personalId}', [ColaboradorPersonalController::class, 'show'])
         ->whereNumber('empresaClienteId')
         ->whereNumber('personalId');
+    Route::get('/empresas-cliente/{empresaClienteId}/personal/{personalId}/legajo/{tipo}/stream', [ColaboradorPersonalController::class, 'streamLegajoArchivo'])
+        ->whereNumber('empresaClienteId')
+        ->whereNumber('personalId')
+        ->whereIn('tipo', ['curriculum', 'licencia', 'aviso', 'croquis', 'certificado_nacimiento']);
     Route::patch('/empresas-cliente/{empresaClienteId}/personal/{personalId}/caja-regimen', [ColaboradorPersonalController::class, 'patchRegimenCaja'])
         ->whereNumber('empresaClienteId')
         ->whereNumber('personalId');
@@ -149,6 +171,10 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->pref
 Route::middleware(['auth:sanctum', 'usuario.tipo:empresa_cliente'])->prefix('empresa-cliente')->group(function () {
     Route::get('/dashboard', EmpresaClienteDashboardController::class);
     Route::get('/mi-consultora', MiConsultoraController::class);
+    Route::get('/mi-empresa/documentos', [MiEmpresaDocumentoController::class, 'index']);
+    Route::post('/mi-empresa/documentos/{tipo}', [MiEmpresaDocumentoController::class, 'upload']);
+    Route::get('/mi-empresa/documentos/{tipo}/vista-previa', [MiEmpresaDocumentoController::class, 'vistaPrevia']);
+    Route::get('/mi-empresa/documentos/{tipo}/descargar', [MiEmpresaDocumentoController::class, 'descargar']);
     Route::get('/alertas', [EmpresaClienteAlertaController::class, 'index']);
     Route::patch('/alertas/marcar-todas-leidas', [EmpresaClienteAlertaController::class, 'marcarTodasLeidas']);
     Route::patch('/alertas/{id}/marcar-leida', [EmpresaClienteAlertaController::class, 'marcarLeida'])->whereNumber('id');

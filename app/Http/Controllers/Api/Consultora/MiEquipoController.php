@@ -6,14 +6,225 @@ use App\Http\Controllers\Api\ApiController;
 use App\Models\Colaborador;
 use App\Models\ColaboradorPermiso;
 use App\Models\Usuario;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MiEquipoController extends ApiController
 {
+    private const CARGOS_VALIDOS = [
+        'coordinador_general',
+        'analista_afp',
+        'analista_caja',
+        'analista_ministerio',
+        'asistente',
+    ];
+
+    public function descargarPlantillaRegistroMasivo(Request $request): StreamedResponse|JsonResponse
+    {
+        $e = $request->user()->empresaConsultoraTitular;
+        if (! $e) {
+            return $this->fail('Sin consultora asociada.', 403);
+        }
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Plantilla');
+        $headers = [
+            'NOMBRES',
+            'APELLIDOS',
+            'CI',
+            'TELEFONO',
+            'CORREO',
+            'CARGO',
+            'FECHA_INGRESO(YYYY-MM-DD)',
+            'CONTRASENA_INICIAL',
+            'ACCESO_HABILITADO(1/0)',
+        ];
+        $sheet->fromArray($headers, null, 'A1');
+        $sheet->fromArray([
+            'Juan',
+            'Perez',
+            '1234567',
+            '70123456',
+            'juan.perez@empresa.com',
+            'coordinador_general',
+            now()->toDateString(),
+            'Temporal123',
+            '1',
+        ], null, 'A2');
+
+        foreach (range(1, count($headers)) as $columnIndex) {
+            $col = Coordinate::stringFromColumnIndex($columnIndex);
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+        $sheet->freezePane('A2');
+
+        $catalogSheet = $spreadsheet->createSheet();
+        $catalogSheet->setTitle('CATALOGOS');
+        $catalogSheet->setCellValue('A1', 'CARGOS_VALIDOS');
+        foreach (self::CARGOS_VALIDOS as $idx => $cargo) {
+            $catalogSheet->setCellValue('A'.($idx + 2), $cargo);
+        }
+        $catalogSheet->setSheetState(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::SHEETSTATE_HIDDEN);
+
+        for ($row = 2; $row <= 300; $row++) {
+            $validation = $sheet->getCell("F{$row}")->getDataValidation();
+            $validation->setType(DataValidation::TYPE_LIST);
+            $validation->setErrorStyle(DataValidation::STYLE_STOP);
+            $validation->setAllowBlank(false);
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setShowDropDown(true);
+            $validation->setErrorTitle('Cargo inválido');
+            $validation->setError('Selecciona un cargo de la lista.');
+            $validation->setFormula1('=CATALOGOS!$A$2:$A$6');
+        }
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, 'plantilla_registro_masivo_colaboradores.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function cargarRegistroMasivo(Request $request): JsonResponse
+    {
+        $e = $request->user()->empresaConsultoraTitular;
+        if (! $e) {
+            return $this->fail('Sin consultora asociada.', 403);
+        }
+
+        $request->validate([
+            'archivo' => ['required', 'file', 'max:5120', 'mimes:xlsx,xls,csv'],
+        ]);
+
+        $file = $request->file('archivo');
+        $spreadsheet = IOFactory::load($file->getRealPath());
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray(null, true, true, true);
+        if (count($rows) < 2) {
+            return $this->fail('La plantilla no contiene filas para procesar.', 422);
+        }
+
+        $header = array_map(static fn ($v) => trim((string) $v), $rows[1] ?? []);
+        $map = [];
+        foreach ($header as $col => $name) {
+            $map[Str::upper($name)] = $col;
+        }
+
+        $requiredHeaders = ['NOMBRES', 'APELLIDOS', 'CI', 'CORREO', 'CARGO', 'CONTRASENA_INICIAL'];
+        foreach ($requiredHeaders as $rh) {
+            if (! isset($map[$rh])) {
+                return $this->fail("Falta columna obligatoria en plantilla: {$rh}.", 422);
+            }
+        }
+
+        $creados = 0;
+        $errores = [];
+        for ($i = 2; $i <= count($rows); $i++) {
+            $line = $rows[$i] ?? [];
+            $payload = [
+                'nombres' => trim((string) ($line[$map['NOMBRES']] ?? '')),
+                'apellidos' => trim((string) ($line[$map['APELLIDOS']] ?? '')),
+                'ci' => trim((string) ($line[$map['CI']] ?? '')),
+                'telefono' => trim((string) ($line[$map['TELEFONO']] ?? '')),
+                'correo' => trim((string) ($line[$map['CORREO']] ?? '')),
+                'cargo' => trim((string) ($line[$map['CARGO']] ?? '')),
+                'fecha_ingreso' => trim((string) ($line[$map['FECHA_INGRESO(YYYY-MM-DD)']] ?? '')),
+                'password' => trim((string) ($line[$map['CONTRASENA_INICIAL']] ?? '')),
+                'acceso_habilitado' => trim((string) ($line[$map['ACCESO_HABILITADO(1/0)']] ?? '1')),
+            ];
+
+            $emptyRow = collect($payload)->every(fn ($v) => $v === '' || $v === null);
+            if ($emptyRow) {
+                continue;
+            }
+
+            $validator = Validator::make($payload, [
+                'nombres' => ['required', 'string', 'max:100'],
+                'apellidos' => ['required', 'string', 'max:100'],
+                'ci' => ['required', 'string', 'max:20'],
+                'telefono' => ['nullable', 'string', 'max:20'],
+                'correo' => ['required', 'email', 'max:150'],
+                'cargo' => ['required', Rule::in(self::CARGOS_VALIDOS)],
+                'fecha_ingreso' => ['nullable', 'date'],
+                'password' => ['required', 'string', 'min:8'],
+                'acceso_habilitado' => ['nullable', Rule::in(['1', '0', 'true', 'false', ''])],
+            ]);
+
+            if ($validator->fails()) {
+                $errores[] = [
+                    'fila' => $i,
+                    'mensaje' => collect($validator->errors()->all())->join(' | '),
+                ];
+                continue;
+            }
+
+            if (Usuario::query()->where('correo', $payload['correo'])->exists()) {
+                $errores[] = ['fila' => $i, 'mensaje' => 'El correo ya existe.'];
+                continue;
+            }
+
+            $accesoHabilitado = in_array(Str::lower((string) $payload['acceso_habilitado']), ['1', 'true', ''], true);
+            try {
+                DB::transaction(function () use ($payload, $e, $accesoHabilitado) {
+                    $nuBase = Str::slug(Str::before($payload['correo'], '@')) ?: 'colab';
+                    $nu = $nuBase;
+                    $n = 0;
+                    while (Usuario::query()->where('nombre_usuario', $nu)->exists()) {
+                        $nu = $nuBase.++$n;
+                    }
+
+                    $usuario = Usuario::create([
+                        'nombre_usuario' => $nu,
+                        'correo' => $payload['correo'],
+                        'contrasena_hash' => Hash::make($payload['password']),
+                        'tipo' => 'colaborador',
+                        'estado' => $accesoHabilitado ? 'activo' : 'inactivo',
+                        'verificado' => $accesoHabilitado,
+                        'debe_cambiar_contrasena' => $accesoHabilitado,
+                    ]);
+
+                    $col = Colaborador::create([
+                        'consultora_id' => $e->id,
+                        'usuario_id' => $usuario->id,
+                        'nombres' => $payload['nombres'],
+                        'apellidos' => $payload['apellidos'],
+                        'ci' => $payload['ci'],
+                        'telefono' => $payload['telefono'] ?: null,
+                        'cargo' => $payload['cargo'],
+                        'fecha_ingreso' => $payload['fecha_ingreso'] ? Carbon::parse($payload['fecha_ingreso']) : now(),
+                        'estado' => $accesoHabilitado ? 'activo' : 'inactivo',
+                    ]);
+
+                    $this->seedPermisos($col, $payload['cargo'], $e->id);
+                });
+                $creados++;
+            } catch (\Throwable $th) {
+                $errores[] = ['fila' => $i, 'mensaje' => 'Error al crear colaborador en esta fila.'];
+            }
+        }
+
+        return $this->ok([
+            'creados' => $creados,
+            'errores' => $errores,
+            'procesados' => $creados + count($errores),
+        ], $creados > 0 ? 'Carga masiva procesada.' : 'No se pudo crear ningún colaborador.');
+    }
+
     public function index(Request $request): JsonResponse
     {
         $e = $request->user()->empresaConsultoraTitular;
