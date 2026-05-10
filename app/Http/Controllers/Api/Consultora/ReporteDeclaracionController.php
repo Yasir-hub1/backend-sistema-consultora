@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\ApiController;
 use App\Models\DeclaracionAguinaldo;
 use App\Models\DeclaracionMensual;
 use App\Models\EmpresaCliente;
+use App\Models\EmpresaClienteOtroDocumento;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -60,7 +62,7 @@ class ReporteDeclaracionController extends ApiController
             'anio' => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'empresa_cliente_id' => ['nullable', 'integer'],
             'modulo' => ['nullable', 'in:afp,caja,ministerio'],
-            'tipo_declaracion' => ['nullable', 'in:mensual,aguinaldo,todos'],
+            'tipo_declaracion' => ['nullable', 'in:mensual,aguinaldo,todos,otros_documentos'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
@@ -119,6 +121,31 @@ class ReporteDeclaracionController extends ApiController
             ]);
         }
 
+        if ($tipo === 'otros_documentos') {
+            $q = EmpresaClienteOtroDocumento::query()
+                ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
+                ->with(['empresaCliente:id,nombre,razon_social,nit']);
+
+            if ($mg = $request->string('mes_gestion')->toString()) {
+                [$anio, $mes] = array_map('intval', explode('-', $mg));
+                $start = Carbon::createFromDate($anio, $mes, 1)->startOfMonth();
+                $end = (clone $start)->endOfMonth();
+                $q->whereBetween('fecha_subida', [$start, $end]);
+            }
+            if ($empresaId = $request->query('empresa_cliente_id')) {
+                $q->where('empresa_cliente_id', (int) $empresaId);
+            }
+
+            $p = $q->orderByDesc('fecha_subida')->orderByDesc('id')->paginate($perPage);
+
+            return $this->ok([
+                'data' => collect($p->items())->map(fn (EmpresaClienteOtroDocumento $d) => $this->serializarOtroDocumento($d))->all(),
+                'current_page' => $p->currentPage(),
+                'last_page' => $p->lastPage(),
+                'total' => $p->total(),
+            ]);
+        }
+
         $mensuales = DeclaracionMensual::query()
             ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
             ->with(['empresaCliente:id,nombre,razon_social,nit'])
@@ -139,8 +166,22 @@ class ReporteDeclaracionController extends ApiController
             ->get()
             ->map(fn (DeclaracionAguinaldo $d) => $this->serializarAguinaldo($d));
 
+        $otrosDocs = EmpresaClienteOtroDocumento::query()
+            ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
+            ->with(['empresaCliente:id,nombre,razon_social,nit'])
+            ->when($request->string('mes_gestion')->toString() !== '', function ($q) use ($request) {
+                [$anio, $mes] = array_map('intval', explode('-', $request->string('mes_gestion')->toString()));
+                $start = Carbon::createFromDate($anio, $mes, 1)->startOfMonth();
+                $end = (clone $start)->endOfMonth();
+                $q->whereBetween('fecha_subida', [$start, $end]);
+            })
+            ->when($request->query('empresa_cliente_id'), fn ($q, $eid) => $q->where('empresa_cliente_id', (int) $eid))
+            ->get()
+            ->map(fn (EmpresaClienteOtroDocumento $d) => $this->serializarOtroDocumento($d));
+
         $rows = $mensuales
             ->concat($aguinaldos)
+            ->concat($otrosDocs)
             ->sortByDesc(fn (array $r) => $r['fecha_subida'] ?? '')
             ->values();
 
@@ -159,11 +200,26 @@ class ReporteDeclaracionController extends ApiController
         ]);
     }
 
-    public function vistaPrevia(Request $request, int $id): BinaryFileResponse|JsonResponse
+    public function vistaPrevia(Request $request, int $id): BinaryFileResponse|JsonResponse|StreamedResponse
     {
         $doc = $this->resolverDocumento($request, $id);
-        if (! $doc instanceof DeclaracionMensual && ! $doc instanceof DeclaracionAguinaldo) {
+        if ($doc instanceof JsonResponse) {
             return $doc;
+        }
+
+        if ($doc instanceof EmpresaClienteOtroDocumento) {
+            if (! Storage::disk('local')->exists($doc->ruta_archivo)) {
+                return $this->fail('Archivo no disponible', 404);
+            }
+
+            return Storage::disk('local')->response($doc->ruta_archivo, $doc->nombre_original, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="'.$this->safeName($doc->nombre_original).'"',
+            ]);
+        }
+
+        if (! $doc instanceof DeclaracionMensual && ! $doc instanceof DeclaracionAguinaldo) {
+            return $this->fail('Tipo de documento no soportado', 422);
         }
 
         $abs = Storage::disk('local')->path($doc->ruta_archivo);
@@ -180,8 +236,22 @@ class ReporteDeclaracionController extends ApiController
     public function descargar(Request $request, int $id): StreamedResponse|BinaryFileResponse|JsonResponse
     {
         $doc = $this->resolverDocumento($request, $id);
-        if (! $doc instanceof DeclaracionMensual && ! $doc instanceof DeclaracionAguinaldo) {
+        if ($doc instanceof JsonResponse) {
             return $doc;
+        }
+
+        if ($doc instanceof EmpresaClienteOtroDocumento) {
+            if (! Storage::disk('local')->exists($doc->ruta_archivo)) {
+                return $this->fail('Archivo no disponible', 404);
+            }
+
+            return Storage::disk('local')->download($doc->ruta_archivo, $doc->nombre_original, [
+                'Content-Type' => 'application/pdf',
+            ]);
+        }
+
+        if (! $doc instanceof DeclaracionMensual && ! $doc instanceof DeclaracionAguinaldo) {
+            return $this->fail('Tipo de documento no soportado', 422);
         }
 
         $abs = Storage::disk('local')->path($doc->ruta_archivo);
@@ -249,7 +319,7 @@ class ReporteDeclaracionController extends ApiController
         return response()->download($out, $downloadName)->deleteFileAfterSend(true);
     }
 
-    private function resolverDocumento(Request $request, int $id): DeclaracionMensual|DeclaracionAguinaldo|JsonResponse
+    private function resolverDocumento(Request $request, int $id): DeclaracionMensual|DeclaracionAguinaldo|EmpresaClienteOtroDocumento|JsonResponse
     {
         $consultoraId = $this->consultoraId($request);
         if (! $consultoraId) {
@@ -257,6 +327,18 @@ class ReporteDeclaracionController extends ApiController
         }
 
         $tipo = (string) ($request->query('tipo_declaracion') ?: 'mensual');
+        if ($tipo === 'otros_documentos') {
+            $doc = EmpresaClienteOtroDocumento::query()
+                ->whereKey($id)
+                ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
+                ->first();
+            if (! $doc) {
+                return $this->fail('Documento no encontrado', 404);
+            }
+
+            return $doc;
+        }
+
         if ($tipo === 'aguinaldo') {
             $doc = DeclaracionAguinaldo::query()
                 ->whereKey($id)
@@ -342,6 +424,29 @@ class ReporteDeclaracionController extends ApiController
             'formato' => $d->formato,
             'tamano_bytes' => $d->tamano_bytes,
             'fecha_subida' => $d->fecha_subida?->toIso8601String(),
+        ];
+    }
+
+    private function serializarOtroDocumento(EmpresaClienteOtroDocumento $d): array
+    {
+        $fecha = $d->fecha_subida;
+
+        return [
+            'id' => $d->id,
+            'tipo_declaracion' => 'otros_documentos',
+            'empresa_id' => $d->empresa_cliente_id,
+            'empresa_nombre' => $d->empresaCliente?->nombre ?: $d->empresaCliente?->razon_social,
+            'empresa_nit' => $d->empresaCliente?->nit,
+            'mes_gestion' => $fecha ? sprintf('%04d-%02d', $fecha->year, $fecha->month) : null,
+            'periodo_label' => $fecha
+                ? $fecha->copy()->locale('es')->translatedFormat('M Y')
+                : '—',
+            'modulo' => 'otros_documentos',
+            'descripcion' => $d->descripcion,
+            'nombre_original' => $d->nombre_original,
+            'formato' => $d->formato,
+            'tamano_bytes' => $d->tamano_bytes,
+            'fecha_subida' => $fecha?->toIso8601String(),
         ];
     }
 }

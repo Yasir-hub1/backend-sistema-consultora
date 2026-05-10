@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\EmpresaCliente\DeclaracionMensualController as Empr
 use App\Http\Controllers\Api\EmpresaCliente\DocumentoDescargaController;
 use App\Http\Controllers\Api\EmpresaCliente\MiEmpresaDocumentoController;
 use App\Http\Controllers\Api\EmpresaCliente\MiConsultoraController;
+use App\Http\Controllers\Api\EmpresaCliente\OtrosDocumentosController as EmpresaClienteOtrosDocumentosController;
 use App\Http\Controllers\Api\EmpresaCliente\PersonalController as EmpresaClientePersonalController;
 use App\Http\Controllers\Api\PushSubscriptionController;
 use Illuminate\Support\Facades\Route;
@@ -193,5 +194,10 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:empresa_cliente'])->prefix('emp
     Route::get('/declaraciones-aguinaldo/{id}/vista-previa', [EmpresaClienteDeclaracionAguinaldoController::class, 'vistaPrevia'])
         ->whereNumber('id');
     Route::get('/declaraciones-aguinaldo/{id}/descargar', [EmpresaClienteDeclaracionAguinaldoController::class, 'descargar'])
+        ->whereNumber('id');
+    Route::get('/otros-documentos', [EmpresaClienteOtrosDocumentosController::class, 'index']);
+    Route::get('/otros-documentos/{id}/vista-previa', [EmpresaClienteOtrosDocumentosController::class, 'vistaPrevia'])
+        ->whereNumber('id');
+    Route::get('/otros-documentos/{id}/descargar', [EmpresaClienteOtrosDocumentosController::class, 'descargar'])
         ->whereNumber('id');
 });
