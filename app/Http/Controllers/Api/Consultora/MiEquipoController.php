@@ -426,6 +426,7 @@ class MiEquipoController extends ApiController
 
         $payload = $request->validate([
             'puede_editar_empresa_cliente' => ['sometimes', 'boolean'],
+            'puede_declarar_aguinaldo' => ['sometimes', 'boolean'],
             'permisos' => ['required', 'array'],
             'permisos.*.modulo' => ['required', 'string', Rule::in(['afp', 'caja', 'ministerio'])],
             'permisos.*.puede_ver' => ['sometimes', 'boolean'],
@@ -440,6 +441,11 @@ class MiEquipoController extends ApiController
 
         if (array_key_exists('puede_editar_empresa_cliente', $payload)) {
             $col->puede_editar_empresa_cliente = $payload['puede_editar_empresa_cliente'];
+            $col->save();
+        }
+
+        if (array_key_exists('puede_declarar_aguinaldo', $payload)) {
+            $col->puede_declarar_aguinaldo = $request->boolean('puede_declarar_aguinaldo');
             $col->save();
         }
 
@@ -460,9 +466,12 @@ class MiEquipoController extends ApiController
             );
         }
 
+        $colFresh = $col->fresh();
+
         return $this->ok([
-            'puede_editar_empresa_cliente' => (bool) $col->fresh()->puede_editar_empresa_cliente,
-            'permisos_por_modulo' => $col->permisosPorModulo()->get()->map(static function ($p) {
+            'puede_editar_empresa_cliente' => (bool) $colFresh->puede_editar_empresa_cliente,
+            'puede_declarar_aguinaldo' => (bool) $colFresh->puede_declarar_aguinaldo,
+            'permisos_por_modulo' => $colFresh->permisosPorModulo()->get()->map(static function ($p) {
                 return [
                     'modulo' => $p->modulo,
                     'puede_ver' => (bool) $p->puede_ver,
@@ -531,5 +540,11 @@ class MiEquipoController extends ApiController
                 'configurado_por' => $consultoraId,
             ], $base));
         }
+
+        $tieneDeclaracionMensual = ColaboradorPermiso::query()
+            ->where('colaborador_id', $col->id)
+            ->where('puede_gestionar_modulo', true)
+            ->exists();
+        $col->update(['puede_declarar_aguinaldo' => $tieneDeclaracionMensual]);
     }
 }

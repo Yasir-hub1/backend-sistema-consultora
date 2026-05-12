@@ -31,6 +31,7 @@ class Colaborador extends Model
         'estado',
         'observaciones',
         'puede_editar_empresa_cliente',
+        'puede_declarar_aguinaldo',
     ];
 
     protected function casts(): array
@@ -38,6 +39,7 @@ class Colaborador extends Model
         return [
             'fecha_ingreso' => 'date',
             'puede_editar_empresa_cliente' => 'boolean',
+            'puede_declarar_aguinaldo' => 'boolean',
             'creado_en' => 'datetime',
             'actualizado_en' => 'datetime',
         ];

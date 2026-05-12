@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Colaborador\DeclaracionAguinaldoController;
 use App\Http\Controllers\Api\Colaborador\DeclaracionMensualController;
 use App\Http\Controllers\Api\Colaborador\DocumentoModuloController;
 use App\Http\Controllers\Api\Colaborador\EmpresaAsignadaController;
+use App\Http\Controllers\Api\Colaborador\EmpresaClienteMiEmpresaDocumentoController;
 use App\Http\Controllers\Api\Colaborador\EmpresaClienteOtroDocumentoController;
 use App\Http\Controllers\Api\Colaborador\PersonalController as ColaboradorPersonalController;
 use App\Http\Controllers\Api\Consultora\AlertaController;
@@ -141,6 +142,16 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->pref
     Route::get('/empresas-cliente/{empresaClienteId}/otros-documentos/{id}/descargar', [EmpresaClienteOtroDocumentoController::class, 'descargar'])
         ->whereNumber('empresaClienteId')
         ->whereNumber('id');
+
+    Route::get('/empresas-cliente/{empresaClienteId}/mi-empresa/documentos', [EmpresaClienteMiEmpresaDocumentoController::class, 'index'])
+        ->whereNumber('empresaClienteId');
+    Route::post('/empresas-cliente/{empresaClienteId}/mi-empresa/documentos/{tipo}', [EmpresaClienteMiEmpresaDocumentoController::class, 'store'])
+        ->whereNumber('empresaClienteId');
+    Route::get('/empresas-cliente/{empresaClienteId}/mi-empresa/documentos/{tipo}/vista-previa', [EmpresaClienteMiEmpresaDocumentoController::class, 'vistaPrevia'])
+        ->whereNumber('empresaClienteId');
+    Route::get('/empresas-cliente/{empresaClienteId}/mi-empresa/documentos/{tipo}/descargar', [EmpresaClienteMiEmpresaDocumentoController::class, 'descargar'])
+        ->whereNumber('empresaClienteId');
+
     Route::get('/empresas-cliente/{empresaClienteId}/personal/{personalId}', [ColaboradorPersonalController::class, 'show'])
         ->whereNumber('empresaClienteId')
         ->whereNumber('personalId');
@@ -173,7 +184,6 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:empresa_cliente'])->prefix('emp
     Route::get('/dashboard', EmpresaClienteDashboardController::class);
     Route::get('/mi-consultora', MiConsultoraController::class);
     Route::get('/mi-empresa/documentos', [MiEmpresaDocumentoController::class, 'index']);
-    Route::post('/mi-empresa/documentos/{tipo}', [MiEmpresaDocumentoController::class, 'upload']);
     Route::get('/mi-empresa/documentos/{tipo}/vista-previa', [MiEmpresaDocumentoController::class, 'vistaPrevia']);
     Route::get('/mi-empresa/documentos/{tipo}/descargar', [MiEmpresaDocumentoController::class, 'descargar']);
     Route::get('/alertas', [EmpresaClienteAlertaController::class, 'index']);

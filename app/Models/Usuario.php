@@ -130,6 +130,7 @@ class Usuario extends Authenticatable
                 $base['colaborador'] = [
                     'id' => $col->id,
                     'puede_editar_empresa_cliente' => (bool) $col->puede_editar_empresa_cliente,
+                    'puede_declarar_aguinaldo' => (bool) $col->puede_declarar_aguinaldo,
                     'permisos_por_modulo' => $permisos->map(static function ($p) {
                         return [
                             'modulo' => $p->modulo,

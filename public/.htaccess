@@ -3,6 +3,16 @@
         Options -MultiViews -Indexes
     </IfModule>
 
+    # Solo mod_php (no PHP-FPM). Debe ser mayor que upload_max_filesize y que la validación Laravel (10 MB PDF).
+    <IfModule mod_php.c>
+        php_value upload_max_filesize 32M
+        php_value post_max_size 40M
+    </IfModule>
+    <IfModule mod_php8.c>
+        php_value upload_max_filesize 32M
+        php_value post_max_size 40M
+    </IfModule>
+
     RewriteEngine On
 
     # Handle Authorization Header
