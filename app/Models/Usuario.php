@@ -131,6 +131,8 @@ class Usuario extends Authenticatable
                     'id' => $col->id,
                     'puede_editar_empresa_cliente' => (bool) $col->puede_editar_empresa_cliente,
                     'puede_declarar_aguinaldo' => (bool) $col->puede_declarar_aguinaldo,
+                    'puede_gestionar_otros_documentos_empresa' => (bool) $col->puede_gestionar_otros_documentos_empresa,
+                    'puede_gestionar_documentos_legales_mi_empresa' => (bool) $col->puede_gestionar_documentos_legales_mi_empresa,
                     'permisos_por_modulo' => $permisos->map(static function ($p) {
                         return [
                             'modulo' => $p->modulo,

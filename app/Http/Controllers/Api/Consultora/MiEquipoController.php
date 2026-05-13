@@ -272,6 +272,9 @@ class MiEquipoController extends ApiController
             $row['usuario_estado'] = $u?->estado;
             $row['debe_cambiar_contrasena'] = (bool) ($u?->debe_cambiar_contrasena);
             $row['puede_editar_empresa_cliente'] = (bool) $c->puede_editar_empresa_cliente;
+            $row['puede_declarar_aguinaldo'] = (bool) $c->puede_declarar_aguinaldo;
+            $row['puede_gestionar_otros_documentos_empresa'] = (bool) $c->puede_gestionar_otros_documentos_empresa;
+            $row['puede_gestionar_documentos_legales_mi_empresa'] = (bool) $c->puede_gestionar_documentos_legales_mi_empresa;
             $row['permisos_por_modulo'] = $c->permisosPorModulo->map(static function ($p) {
                 return [
                     'modulo' => $p->modulo,
@@ -427,6 +430,8 @@ class MiEquipoController extends ApiController
         $payload = $request->validate([
             'puede_editar_empresa_cliente' => ['sometimes', 'boolean'],
             'puede_declarar_aguinaldo' => ['sometimes', 'boolean'],
+            'puede_gestionar_otros_documentos_empresa' => ['sometimes', 'boolean'],
+            'puede_gestionar_documentos_legales_mi_empresa' => ['sometimes', 'boolean'],
             'permisos' => ['required', 'array'],
             'permisos.*.modulo' => ['required', 'string', Rule::in(['afp', 'caja', 'ministerio'])],
             'permisos.*.puede_ver' => ['sometimes', 'boolean'],
@@ -440,7 +445,7 @@ class MiEquipoController extends ApiController
         ]);
 
         if (array_key_exists('puede_editar_empresa_cliente', $payload)) {
-            $col->puede_editar_empresa_cliente = $payload['puede_editar_empresa_cliente'];
+            $col->puede_editar_empresa_cliente = $request->boolean('puede_editar_empresa_cliente');
             $col->save();
         }
 
@@ -449,18 +454,41 @@ class MiEquipoController extends ApiController
             $col->save();
         }
 
+        if (array_key_exists('puede_gestionar_otros_documentos_empresa', $payload)) {
+            $col->puede_gestionar_otros_documentos_empresa = $request->boolean('puede_gestionar_otros_documentos_empresa');
+            $col->save();
+        }
+
+        if (array_key_exists('puede_gestionar_documentos_legales_mi_empresa', $payload)) {
+            $col->puede_gestionar_documentos_legales_mi_empresa = $request->boolean('puede_gestionar_documentos_legales_mi_empresa');
+            $col->save();
+        }
+
+        $existentes = $col->permisosPorModulo()->get()->keyBy('modulo');
+
         foreach ($payload['permisos'] as $row) {
+            $modulo = $row['modulo'];
+            $prev = $existentes->get($modulo);
+
+            $registrar = (bool) ($row['puede_registrar_personal'] ?? false);
+            $editar = (bool) ($row['puede_editar_personal'] ?? false);
+            $subir = (bool) ($row['puede_subir_documentos'] ?? false);
+            $gestionar = (bool) ($row['puede_gestionar_modulo'] ?? false);
+            $operativo = $registrar || $editar || $subir || $gestionar;
+
             ColaboradorPermiso::query()->updateOrCreate(
-                ['colaborador_id' => $col->id, 'modulo' => $row['modulo']],
+                ['colaborador_id' => $col->id, 'modulo' => $modulo],
                 [
-                    'puede_ver' => $row['puede_ver'] ?? false,
-                    'puede_registrar_personal' => $row['puede_registrar_personal'] ?? false,
-                    'puede_editar_personal' => $row['puede_editar_personal'] ?? false,
-                    'puede_subir_documentos' => $row['puede_subir_documentos'] ?? false,
-                    'puede_eliminar_documentos' => $row['puede_eliminar_documentos'] ?? false,
-                    'puede_gestionar_modulo' => $row['puede_gestionar_modulo'] ?? false,
-                    'puede_exportar_reportes' => $row['puede_exportar_reportes'] ?? false,
-                    'puede_invitar_empresa' => $row['puede_invitar_empresa'] ?? false,
+                    'puede_ver' => array_key_exists('puede_ver', $row)
+                        ? (bool) $row['puede_ver']
+                        : $operativo,
+                    'puede_registrar_personal' => $registrar,
+                    'puede_editar_personal' => $editar,
+                    'puede_subir_documentos' => $subir,
+                    'puede_eliminar_documentos' => (bool) ($row['puede_eliminar_documentos'] ?? false),
+                    'puede_gestionar_modulo' => $gestionar,
+                    'puede_exportar_reportes' => (bool) ($row['puede_exportar_reportes'] ?? false),
+                    'puede_invitar_empresa' => (bool) ($row['puede_invitar_empresa'] ?? false),
                     'configurado_por' => $e->id,
                 ]
             );
@@ -471,6 +499,8 @@ class MiEquipoController extends ApiController
         return $this->ok([
             'puede_editar_empresa_cliente' => (bool) $colFresh->puede_editar_empresa_cliente,
             'puede_declarar_aguinaldo' => (bool) $colFresh->puede_declarar_aguinaldo,
+            'puede_gestionar_otros_documentos_empresa' => (bool) $colFresh->puede_gestionar_otros_documentos_empresa,
+            'puede_gestionar_documentos_legales_mi_empresa' => (bool) $colFresh->puede_gestionar_documentos_legales_mi_empresa,
             'permisos_por_modulo' => $colFresh->permisosPorModulo()->get()->map(static function ($p) {
                 return [
                     'modulo' => $p->modulo,
@@ -545,6 +575,10 @@ class MiEquipoController extends ApiController
             ->where('colaborador_id', $col->id)
             ->where('puede_gestionar_modulo', true)
             ->exists();
-        $col->update(['puede_declarar_aguinaldo' => $tieneDeclaracionMensual]);
+        $col->update([
+            'puede_declarar_aguinaldo' => $tieneDeclaracionMensual,
+            'puede_gestionar_otros_documentos_empresa' => $cargo === 'coordinador_general',
+            'puede_gestionar_documentos_legales_mi_empresa' => $cargo === 'coordinador_general',
+        ]);
     }
 }

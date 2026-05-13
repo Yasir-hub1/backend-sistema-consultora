@@ -99,16 +99,12 @@ class ColaboradorAutorizacionService
     }
 
     /**
-     * Subir documentos del legajo (catálogo por módulo): requiere permiso de subida en ese módulo
-     * o edición de legajo global.
+     * Subir documentos del legajo (catálogo por módulo): solo flag puede_subir_documentos del módulo.
      */
     public static function puedeSubirDocumentosEnModulo(Usuario $u, int $empresaClienteId, string $modulo): bool
     {
         if (! in_array($modulo, ['afp', 'caja', 'ministerio'], true)) {
             return false;
-        }
-        if (self::puedeEditarPersonal($u, $empresaClienteId)) {
-            return true;
         }
         $emp = EmpresaCliente::query()->find($empresaClienteId);
         if (! $emp) {
@@ -133,15 +129,12 @@ class ColaboradorAutorizacionService
     }
 
     /**
-     * Cargar o reemplazar una declaración mensual (por módulo).
+     * Cargar o reemplazar una declaración mensual (por módulo): solo puede_gestionar_modulo del módulo.
      */
     public static function puedeCargarDeclaracionMensual(Usuario $u, int $empresaClienteId, string $modulo): bool
     {
         if (! in_array($modulo, ['afp', 'caja', 'ministerio'], true)) {
             return false;
-        }
-        if (self::puedeEditarPersonal($u, $empresaClienteId) || self::puedeRegistrarPersonal($u, $empresaClienteId)) {
-            return true;
         }
 
         $emp = EmpresaCliente::query()->find($empresaClienteId);
@@ -167,14 +160,10 @@ class ColaboradorAutorizacionService
     }
 
     /**
-     * Declaración anual de aguinaldo (empresa): flag explícito en colaborador, independiente de
-     * «Cargar declaración mensual» por módulo (AFP/CAJA/Ministerio).
+     * Declaración anual de aguinaldo: solo flag puede_declarar_aguinaldo en colaborador.
      */
     public static function puedeCargarDeclaracionAguinaldo(Usuario $u, int $empresaClienteId): bool
     {
-        if (self::puedeEditarPersonal($u, $empresaClienteId) || self::puedeRegistrarPersonal($u, $empresaClienteId)) {
-            return true;
-        }
         $emp = EmpresaCliente::query()->find($empresaClienteId);
         if (! $emp) {
             return false;
@@ -205,36 +194,37 @@ class ColaboradorAutorizacionService
         if (self::esConsultoraTitularDeEmpresa($u, $emp)) {
             return true;
         }
-        if (self::puedeRegistrarPersonal($u, $empresaClienteId)) {
-            return true;
+        $c = $u->colaborador;
+        if (! $c) {
+            return false;
         }
-        if (self::puedeEditarPersonal($u, $empresaClienteId)) {
-            return true;
-        }
-        foreach (['afp', 'caja', 'ministerio'] as $modulo) {
-            if (self::puedeSubirDocumentosEnModulo($u, $empresaClienteId, $modulo)) {
-                return true;
-            }
+        if (! $c->empresasCliente()->whereKey($empresaClienteId)->wherePivot('activo', true)->exists()) {
+            return false;
         }
 
-        return false;
+        return (bool) $c->puede_gestionar_otros_documentos_empresa;
     }
 
     /**
-     * PDFs del catálogo «Mi empresa» (NIT, ROE, etc.): carga/reemplazo solo colaborador/consultora con alcance operativo.
+     * PDFs del catálogo «Mi empresa» (NIT, ROE, etc.): carga/reemplazo solo colaborador/consultora con permiso explícito.
      */
     public static function puedeGestionarDocumentosLegalesMiEmpresa(Usuario $u, int $empresaClienteId): bool
     {
-        if (self::puedeEditarEmpresaCliente($u, $empresaClienteId)) {
+        $emp = EmpresaCliente::query()->find($empresaClienteId);
+        if (! $emp) {
+            return false;
+        }
+        if (self::esConsultoraTitularDeEmpresa($u, $emp)) {
             return true;
         }
-        if (self::puedeEditarPersonal($u, $empresaClienteId)) {
-            return true;
+        $c = $u->colaborador;
+        if (! $c) {
+            return false;
         }
-        if (self::puedeRegistrarPersonal($u, $empresaClienteId)) {
-            return true;
+        if (! $c->empresasCliente()->whereKey($empresaClienteId)->wherePivot('activo', true)->exists()) {
+            return false;
         }
 
-        return self::puedeGestionarOtrosDocumentosEmpresa($u, $empresaClienteId);
+        return (bool) $c->puede_gestionar_documentos_legales_mi_empresa;
     }
 }
