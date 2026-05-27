@@ -22,10 +22,11 @@ return [
     'allowed_origins' => array_values(array_filter(array_unique([
         env('FRONTEND_URL', 'http://localhost:5173'),
         'http://localhost:5173',
+        'https://consult360.humbertomorenoperez.lat',
         'http://127.0.0.1:5173',
         'http://localhost:3000',
         'http://127.0.0.1:3000',
-        'http://192.168.100.184:3000',
+        'http://192.168.100.194:3000',
     ]))),
 
     'allowed_origins_patterns' => [],
