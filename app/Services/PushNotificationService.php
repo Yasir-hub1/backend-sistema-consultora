@@ -102,6 +102,9 @@ class PushNotificationService
             'declaracion_aguinaldo' => collect([
                 $alerta->empresaCliente?->usuario_id,
             ]),
+            'tramite_recordatorio', 'tramite_periodo_nuevo', 'tramite_tareas_pendientes', 'tramite_recurrencia_anulada', 'tramite_anulado', 'tramite_asignado' => $alerta->colaborador_asignado
+                ? collect([$alerta->colaboradorAsignado?->usuario_id])
+                : collect([$alerta->consultora?->usuario_id]),
             'registro_personal', 'acceso_portal' => collect([
                 $alerta->consultora?->usuario_id,
             ]),
@@ -168,6 +171,15 @@ class PushNotificationService
         }
         if ($mod === 'declaracion_mensual' && $tipo === 'empresa_cliente') {
             return '/empresa-cliente/declaraciones-mensuales';
+        }
+        if (in_array($mod, ['tramite_asignado', 'tramite_recordatorio', 'tramite_periodo_nuevo', 'tramite_tareas_pendientes', 'tramite_recurrencia_anulada', 'tramite_anulado'], true)) {
+            $tid = $alerta->contexto['tramite_id'] ?? null;
+            if ($tipo === 'colaborador' && $tid) {
+                return "/colaborador/tramites/{$tid}";
+            }
+            if ($tipo === 'consultora' && $tid) {
+                return "/consultora/tramites/{$tid}";
+            }
         }
 
         return match ($tipo) {

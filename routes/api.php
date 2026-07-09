@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\EmpresaCliente\MiEmpresaDocumentoController;
 use App\Http\Controllers\Api\EmpresaCliente\MiConsultoraController;
 use App\Http\Controllers\Api\EmpresaCliente\OtrosDocumentosController as EmpresaClienteOtrosDocumentosController;
 use App\Http\Controllers\Api\EmpresaCliente\PersonalController as EmpresaClientePersonalController;
+use App\Http\Controllers\Api\TramiteController;
 use App\Http\Controllers\Api\PushSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
@@ -93,6 +94,21 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:consultora'])->prefix('consulto
     Route::post('/reportes/declaraciones/exportar-pdf', [ReporteDeclaracionController::class, 'exportarPdf']);
     Route::get('/reportes/resumen-aportes', [ReporteResumenAportesController::class, 'datos']);
     Route::get('/reportes/resumen-aportes/pdf', [ReporteResumenAportesController::class, 'pdf']);
+
+    Route::get('/tramites/tipos', [TramiteController::class, 'tipos']);
+    Route::get('/tramites/colaboradores-asignables', [TramiteController::class, 'colaboradoresAsignables']);
+    Route::get('/tramites/resumen', [TramiteController::class, 'resumen']);
+    Route::get('/tramites/calendario', [TramiteController::class, 'calendario']);
+    Route::get('/tramites', [TramiteController::class, 'index']);
+    Route::post('/tramites', [TramiteController::class, 'store']);
+    Route::get('/tramites/{id}', [TramiteController::class, 'show'])->whereNumber('id');
+    Route::patch('/tramites/{id}', [TramiteController::class, 'update'])->whereNumber('id');
+    Route::post('/tramites/{id}/anular-recurrencia', [TramiteController::class, 'anularRecurrencia'])->whereNumber('id');
+    Route::post('/tramites/{id}/anular', [TramiteController::class, 'anularTramite'])->whereNumber('id');
+    Route::post('/tramites/{tramiteId}/tareas/{tareaId}/iniciar', [TramiteController::class, 'iniciarTarea'])->whereNumber(['tramiteId', 'tareaId']);
+    Route::post('/tramites/{tramiteId}/tareas/{tareaId}/completar', [TramiteController::class, 'completarTarea'])->whereNumber(['tramiteId', 'tareaId']);
+    Route::post('/tramites/{tramiteId}/tareas/{tareaId}/documentos', [TramiteController::class, 'subirDocumentoTarea'])->whereNumber(['tramiteId', 'tareaId']);
+    Route::get('/tramites/{tramiteId}/tareas/{tareaId}/documentos/{documentoId}/descargar', [TramiteController::class, 'descargarDocumentoTarea'])->whereNumber(['tramiteId', 'tareaId', 'documentoId']);
 });
 
 Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->prefix('colaborador')->group(function () {
@@ -178,6 +194,21 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->pref
         ->whereNumber('empresaClienteId')
         ->whereNumber('personalId')
         ->whereIn('modulo', ['afp', 'caja', 'ministerio']);
+
+    Route::get('/tramites/tipos', [TramiteController::class, 'tipos']);
+    Route::get('/tramites/colaboradores-asignables', [TramiteController::class, 'colaboradoresAsignables']);
+    Route::get('/tramites/resumen', [TramiteController::class, 'resumen']);
+    Route::get('/tramites/calendario', [TramiteController::class, 'calendario']);
+    Route::get('/tramites', [TramiteController::class, 'index']);
+    Route::post('/tramites', [TramiteController::class, 'store']);
+    Route::get('/tramites/{id}', [TramiteController::class, 'show'])->whereNumber('id');
+    Route::patch('/tramites/{id}', [TramiteController::class, 'update'])->whereNumber('id');
+    Route::post('/tramites/{id}/anular-recurrencia', [TramiteController::class, 'anularRecurrencia'])->whereNumber('id');
+    Route::post('/tramites/{id}/anular', [TramiteController::class, 'anularTramite'])->whereNumber('id');
+    Route::post('/tramites/{tramiteId}/tareas/{tareaId}/iniciar', [TramiteController::class, 'iniciarTarea'])->whereNumber(['tramiteId', 'tareaId']);
+    Route::post('/tramites/{tramiteId}/tareas/{tareaId}/completar', [TramiteController::class, 'completarTarea'])->whereNumber(['tramiteId', 'tareaId']);
+    Route::post('/tramites/{tramiteId}/tareas/{tareaId}/documentos', [TramiteController::class, 'subirDocumentoTarea'])->whereNumber(['tramiteId', 'tareaId']);
+    Route::get('/tramites/{tramiteId}/tareas/{tareaId}/documentos/{documentoId}/descargar', [TramiteController::class, 'descargarDocumentoTarea'])->whereNumber(['tramiteId', 'tareaId', 'documentoId']);
 });
 
 Route::middleware(['auth:sanctum', 'usuario.tipo:empresa_cliente'])->prefix('empresa-cliente')->group(function () {
@@ -210,4 +241,10 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:empresa_cliente'])->prefix('emp
         ->whereNumber('id');
     Route::get('/otros-documentos/{id}/descargar', [EmpresaClienteOtrosDocumentosController::class, 'descargar'])
         ->whereNumber('id');
+
+    Route::get('/tramites/resumen', [TramiteController::class, 'resumen']);
+    Route::get('/tramites/calendario', [TramiteController::class, 'calendario']);
+    Route::get('/tramites', [TramiteController::class, 'index']);
+    Route::get('/tramites/{id}', [TramiteController::class, 'show'])->whereNumber('id');
+    Route::get('/tramites/{tramiteId}/tareas/{tareaId}/documentos/{documentoId}/descargar', [TramiteController::class, 'descargarDocumentoTarea'])->whereNumber(['tramiteId', 'tareaId', 'documentoId']);
 });

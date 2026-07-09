@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureUsuarioTipo;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 
@@ -35,4 +36,15 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
+    })
+    ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('tramites:renovar-periodos')
+            ->dailyAt('00:10')
+            ->timezone(config('app.timezone', 'America/La_Paz'));
+
+        $schedule->command('tramites:recordatorios')
+            ->everyFiveMinutes()
+            ->timezone(config('app.timezone', 'America/La_Paz'))
+            ->withoutOverlapping(4)
+            ->appendOutputTo(storage_path('logs/tramites-scheduler.log'));
     })->create();

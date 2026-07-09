@@ -18,6 +18,7 @@ class AlertaController extends ApiController
 
         $q = Alerta::query()
             ->where('consultora_id', $e->id)
+            ->whereNull('colaborador_asignado')
             ->where('modulo', '!=', 'asignacion_empresa');
 
         if ($request->has('resuelta')) {
@@ -54,6 +55,7 @@ class AlertaController extends ApiController
         $alerta = Alerta::query()
             ->whereKey($id)
             ->where('consultora_id', $e->id)
+            ->whereNull('colaborador_asignado')
             ->where('modulo', '!=', 'asignacion_empresa')
             ->first();
         if (! $alerta) {
@@ -76,6 +78,7 @@ class AlertaController extends ApiController
 
         $n = Alerta::query()
             ->where('consultora_id', $e->id)
+            ->whereNull('colaborador_asignado')
             ->where('modulo', '!=', 'asignacion_empresa')
             ->where('leida', false)
             ->update(['leida' => true, 'leida_en' => now()]);
