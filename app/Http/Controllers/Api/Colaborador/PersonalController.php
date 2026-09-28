@@ -9,7 +9,6 @@ use App\Models\Personal;
 use App\Models\PersonalCaja;
 use App\Services\ColaboradorAutorizacionService;
 use App\Services\CumplimientoModuloService;
-use App\Services\GestoraPlanillaService;
 use App\Services\PersonalRegistroService;
 use App\Support\NumeroCua;
 use Carbon\Carbon;
@@ -32,7 +31,6 @@ class PersonalController extends ApiController
     public function __construct(
         private PersonalRegistroService $personalRegistroService,
         private CumplimientoModuloService $cumplimientoModuloService,
-        private GestoraPlanillaService $gestoraPlanillaService,
     ) {}
 
     private function empresaAccesible(Request $request, int $empresaId): ?EmpresaCliente
@@ -280,8 +278,6 @@ class PersonalController extends ApiController
             'apellidos' => ['required', 'string', 'max:100'],
             'ci' => ['required', 'string', 'max:20'],
             'numero_cua' => ['nullable', 'string', 'max:40'],
-            'dias_trabajados' => ['nullable', 'integer', 'min:0', 'max:31'],
-            'total_ganado' => ['nullable', 'numeric', 'min:0'],
             'fecha_nacimiento' => ['nullable', 'date'],
             'cargo' => ['nullable', 'string', 'max:150'],
             'fecha_ingreso' => ['required', 'date'],
@@ -291,7 +287,7 @@ class PersonalController extends ApiController
             'nro_caja' => ['nullable', 'string', 'max:50'],
             'correo_electronico' => ['nullable', 'email', 'max:150'],
             'cuenta_bancaria' => ['nullable', 'string', 'max:120'],
-            'contactos_referencia' => ['nullable', 'array', 'min:2', 'max:3'],
+            'contactos_referencia' => ['nullable', 'array', 'max:3'],
             'contactos_referencia.*' => ['nullable', 'string', 'max:160'],
             'curriculum_archivo' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'licencia_conducir_archivo' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
@@ -307,14 +303,6 @@ class PersonalController extends ApiController
         $numeroCua = $this->resolverNumeroCua($request->input('numero_cua'), $empresaClienteId);
         if ($numeroCua instanceof JsonResponse) {
             return $numeroCua;
-        }
-
-        $periodoGestora = $this->gestoraPlanillaService->normalizarPeriodoInicial(
-            $request->input('dias_trabajados'),
-            $request->input('total_ganado'),
-        );
-        if (isset($periodoGestora['error'])) {
-            return $this->fail($periodoGestora['error'], 422);
         }
 
         $colabId = $request->user()->colaborador?->id;
@@ -367,10 +355,6 @@ class PersonalController extends ApiController
         ], [
             'numero_asegurado' => $data['nro_caja'] ?? null,
         ]);
-
-        if ($periodoGestora['omitir'] !== true) {
-            $this->gestoraPlanillaService->guardarPeriodoInicial($per, $periodoGestora['dias'], $periodoGestora['total']);
-        }
 
         $empresa = EmpresaCliente::query()->find($empresaClienteId);
         if ($empresa) {
@@ -452,7 +436,7 @@ class PersonalController extends ApiController
             'observaciones' => ['nullable', 'string'],
             'correo_electronico' => ['nullable', 'email', 'max:150'],
             'cuenta_bancaria' => ['nullable', 'string', 'max:120'],
-            'contactos_referencia' => ['nullable', 'array', 'min:2', 'max:3'],
+            'contactos_referencia' => ['nullable', 'array', 'max:3'],
             'contactos_referencia.*' => ['nullable', 'string', 'max:160'],
             'curriculum_archivo' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'licencia_conducir_archivo' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
@@ -540,8 +524,6 @@ class PersonalController extends ApiController
             'APELLIDOS',
             'CI',
             'NRO_CUA',
-            'DIAS_TRABAJADOS',
-            'TOTAL_GANADO',
             'FECHA_NACIMIENTO(YYYY-MM-DD)',
             'FECHA_INGRESO(YYYY-MM-DD)',
             'CARGO',
@@ -557,8 +539,6 @@ class PersonalController extends ApiController
             'Pérez',
             '1234567 LP',
             '10000001',
-            '30',
-            '8500.00',
             '',
             now()->toDateString(),
             'Personal',
@@ -616,8 +596,6 @@ class PersonalController extends ApiController
             'APELLIDOS',
             'CI',
             'FECHA_INGRESO(YYYY-MM-DD)',
-            'CONTACTO_REFERENCIA_1',
-            'CONTACTO_REFERENCIA_2',
         ];
         foreach ($required as $rh) {
             if (! isset($map[$rh])) {
@@ -632,8 +610,8 @@ class PersonalController extends ApiController
         for ($i = 2; $i <= count($rows); $i++) {
             $line = $rows[$i] ?? [];
 
-            $c1 = trim((string) ($line[$map['CONTACTO_REFERENCIA_1']] ?? ''));
-            $c2 = trim((string) ($line[$map['CONTACTO_REFERENCIA_2']] ?? ''));
+            $c1 = isset($map['CONTACTO_REFERENCIA_1']) ? trim((string) ($line[$map['CONTACTO_REFERENCIA_1']] ?? '')) : '';
+            $c2 = isset($map['CONTACTO_REFERENCIA_2']) ? trim((string) ($line[$map['CONTACTO_REFERENCIA_2']] ?? '')) : '';
             $c3 = isset($map['CONTACTO_REFERENCIA_3']) ? trim((string) ($line[$map['CONTACTO_REFERENCIA_3']] ?? '')) : '';
 
             $contactos = array_values(array_filter([$c1, $c2, $c3], static fn ($v) => $v !== ''));
@@ -655,16 +633,6 @@ class PersonalController extends ApiController
             if ($numeroCua instanceof JsonResponse) {
                 $mensaje = json_decode((string) $numeroCua->getContent(), true);
                 $errores[] = ['fila' => $i, 'mensaje' => is_array($mensaje) ? ($mensaje['message'] ?? 'CUA/RUA inválido.') : 'CUA/RUA inválido.'];
-
-                continue;
-            }
-
-            $periodoGestora = $this->gestoraPlanillaService->normalizarPeriodoInicial(
-                isset($map['DIAS_TRABAJADOS']) ? ($line[$map['DIAS_TRABAJADOS']] ?? null) : null,
-                isset($map['TOTAL_GANADO']) ? ($line[$map['TOTAL_GANADO']] ?? null) : null,
-            );
-            if (isset($periodoGestora['error'])) {
-                $errores[] = ['fila' => $i, 'mensaje' => $periodoGestora['error']];
 
                 continue;
             }
@@ -695,8 +663,8 @@ class PersonalController extends ApiController
                 'cargo' => ['nullable', 'string', 'max:150'],
                 'correo_electronico' => ['nullable', 'email', 'max:150'],
                 'cuenta_bancaria' => ['nullable', 'string', 'max:120'],
-                'contactos_referencia' => ['required', 'array', 'min:2', 'max:3'],
-                'contactos_referencia.*' => ['required', 'string', 'max:160'],
+                'contactos_referencia' => ['nullable', 'array', 'max:3'],
+                'contactos_referencia.*' => ['nullable', 'string', 'max:160'],
             ]);
 
             if ($validator->fails()) {
@@ -715,7 +683,7 @@ class PersonalController extends ApiController
             }
 
             try {
-                DB::transaction(function () use ($payload, $empresaClienteId, $colabId, $periodoGestora) {
+                DB::transaction(function () use ($payload, $empresaClienteId, $colabId) {
                     $per = Personal::create([
                         'empresa_id' => $empresaClienteId,
                         'registrado_por' => $colabId,
@@ -730,18 +698,10 @@ class PersonalController extends ApiController
                         'fecha_ingreso' => Carbon::parse($payload['fecha_ingreso']),
                         'correo_electronico' => $payload['correo_electronico'] !== '' ? $payload['correo_electronico'] : null,
                         'cuenta_bancaria' => $payload['cuenta_bancaria'] !== '' ? $payload['cuenta_bancaria'] : null,
-                        'contactos_referencia' => $payload['contactos_referencia'],
+                        'contactos_referencia' => $payload['contactos_referencia'] !== [] ? $payload['contactos_referencia'] : null,
                     ]);
 
                     $this->personalRegistroService->crearConModulos($per, [], []);
-
-                    if ($periodoGestora['omitir'] !== true) {
-                        $this->gestoraPlanillaService->guardarPeriodoInicial(
-                            $per,
-                            $periodoGestora['dias'],
-                            $periodoGestora['total'],
-                        );
-                    }
 
                     $empresa = EmpresaCliente::query()->find($empresaClienteId);
                     if ($empresa) {
