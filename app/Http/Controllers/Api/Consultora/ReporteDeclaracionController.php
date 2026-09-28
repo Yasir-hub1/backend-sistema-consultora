@@ -26,6 +26,44 @@ class ReporteDeclaracionController extends ApiController
             ?? $u->colaborador?->consultora_id;
     }
 
+    /**
+     * null: la consultora titular ve toda su cartera.
+     * lista: el colaborador solo ve empresas asignadas.
+     *
+     * @return list<int>|null
+     */
+    private function idsEmpresasVisibles(Request $request, int $consultoraId): ?array
+    {
+        $titular = $request->user()->empresaConsultoraTitular;
+        if ($titular && (int) $titular->id === $consultoraId) {
+            return null;
+        }
+
+        $colaborador = $request->user()->colaborador;
+        if (! $colaborador || (int) $colaborador->consultora_id !== $consultoraId) {
+            return [];
+        }
+
+        return $colaborador->empresasCliente()
+            ->where('empresas_cliente.consultora_id', $consultoraId)
+            ->wherePivot('activo', true)
+            ->pluck('empresas_cliente.id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
+    }
+
+    /**
+     * @param  list<int>|null  $ids
+     */
+    private function limitarEmpresas(mixed $query, ?array $ids, string $column = 'empresa_cliente_id'): void
+    {
+        if ($ids === null) {
+            return;
+        }
+
+        $query->whereIn($column, $ids === [] ? [-1] : $ids);
+    }
+
     public function empresas(Request $request): JsonResponse
     {
         $consultoraId = $this->consultoraId($request);
@@ -34,7 +72,9 @@ class ReporteDeclaracionController extends ApiController
         }
 
         $rows = EmpresaCliente::query()
-            ->where('consultora_id', $consultoraId)
+            ->where('consultora_id', $consultoraId);
+        $this->limitarEmpresas($rows, $this->idsEmpresasVisibles($request, $consultoraId), 'id');
+        $rows = $rows
             ->orderBy('nombre')
             ->orderBy('razon_social')
             ->get(['id', 'nombre', 'razon_social', 'nit'])
@@ -70,11 +110,14 @@ class ReporteDeclaracionController extends ApiController
         $tipo = (string) ($request->query('tipo_declaracion') ?: 'mensual');
         $perPage = (int) $request->get('per_page', 50);
         $page = max((int) $request->get('page', 1), 1);
+        $idsVisibles = $this->idsEmpresasVisibles($request, $consultoraId);
 
         if ($tipo === 'mensual') {
             $q = DeclaracionMensual::query()
                 ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
-                ->with(['empresaCliente:id,nombre,razon_social,nit']);
+                ->with(['empresaCliente:id,nombre,razon_social,nit'])
+                ->when($idsVisibles !== null, fn ($q) => $q->whereIn('empresa_cliente_id', $idsVisibles === [] ? [-1] : $idsVisibles));
+            $this->limitarEmpresas($q, $idsVisibles);
 
             if ($mg = $request->string('mes_gestion')->toString()) {
                 [$anio, $mes] = array_map('intval', explode('-', $mg));
@@ -103,7 +146,9 @@ class ReporteDeclaracionController extends ApiController
         if ($tipo === 'aguinaldo') {
             $q = DeclaracionAguinaldo::query()
                 ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
-                ->with(['empresaCliente:id,nombre,razon_social,nit']);
+                ->with(['empresaCliente:id,nombre,razon_social,nit'])
+                ->when($idsVisibles !== null, fn ($q) => $q->whereIn('empresa_cliente_id', $idsVisibles === [] ? [-1] : $idsVisibles));
+            $this->limitarEmpresas($q, $idsVisibles);
             if ($anio = $request->query('anio')) {
                 $q->where('anio', (int) $anio);
             }
@@ -124,7 +169,9 @@ class ReporteDeclaracionController extends ApiController
         if ($tipo === 'otros_documentos') {
             $q = EmpresaClienteOtroDocumento::query()
                 ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
-                ->with(['empresaCliente:id,nombre,razon_social,nit']);
+                ->with(['empresaCliente:id,nombre,razon_social,nit'])
+                ->when($idsVisibles !== null, fn ($q) => $q->whereIn('empresa_cliente_id', $idsVisibles === [] ? [-1] : $idsVisibles));
+            $this->limitarEmpresas($q, $idsVisibles);
 
             if ($mg = $request->string('mes_gestion')->toString()) {
                 [$anio, $mes] = array_map('intval', explode('-', $mg));
@@ -149,6 +196,7 @@ class ReporteDeclaracionController extends ApiController
         $mensuales = DeclaracionMensual::query()
             ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
             ->with(['empresaCliente:id,nombre,razon_social,nit'])
+            ->when($idsVisibles !== null, fn ($q) => $q->whereIn('empresa_cliente_id', $idsVisibles === [] ? [-1] : $idsVisibles))
             ->when($request->string('mes_gestion')->toString() !== '', function ($q) use ($request) {
                 [$anio, $mes] = array_map('intval', explode('-', $request->string('mes_gestion')->toString()));
                 $q->where('anio', $anio)->where('mes', $mes);
@@ -161,6 +209,7 @@ class ReporteDeclaracionController extends ApiController
         $aguinaldos = DeclaracionAguinaldo::query()
             ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
             ->with(['empresaCliente:id,nombre,razon_social,nit'])
+            ->when($idsVisibles !== null, fn ($q) => $q->whereIn('empresa_cliente_id', $idsVisibles === [] ? [-1] : $idsVisibles))
             ->when($request->query('anio'), fn ($q, $a) => $q->where('anio', (int) $a))
             ->when($request->query('empresa_cliente_id'), fn ($q, $eid) => $q->where('empresa_cliente_id', (int) $eid))
             ->get()
@@ -169,6 +218,7 @@ class ReporteDeclaracionController extends ApiController
         $otrosDocs = EmpresaClienteOtroDocumento::query()
             ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
             ->with(['empresaCliente:id,nombre,razon_social,nit'])
+            ->when($idsVisibles !== null, fn ($q) => $q->whereIn('empresa_cliente_id', $idsVisibles === [] ? [-1] : $idsVisibles))
             ->when($request->string('mes_gestion')->toString() !== '', function ($q) use ($request) {
                 [$anio, $mes] = array_map('intval', explode('-', $request->string('mes_gestion')->toString()));
                 $start = Carbon::createFromDate($anio, $mes, 1)->startOfMonth();
@@ -222,6 +272,10 @@ class ReporteDeclaracionController extends ApiController
             return $this->fail('Tipo de documento no soportado', 422);
         }
 
+        if (! is_string($doc->ruta_archivo) || $doc->ruta_archivo === '') {
+            return $this->fail('Esta declaración no tiene PDF.', 404);
+        }
+
         $abs = Storage::disk('local')->path($doc->ruta_archivo);
         if (! is_readable($abs)) {
             return $this->fail('Archivo no disponible', 404);
@@ -254,6 +308,10 @@ class ReporteDeclaracionController extends ApiController
             return $this->fail('Tipo de documento no soportado', 422);
         }
 
+        if (! is_string($doc->ruta_archivo) || $doc->ruta_archivo === '') {
+            return $this->fail('Esta declaración no tiene PDF.', 404);
+        }
+
         $abs = Storage::disk('local')->path($doc->ruta_archivo);
         if (! is_readable($abs)) {
             return $this->fail('Archivo no disponible', 404);
@@ -281,6 +339,7 @@ class ReporteDeclaracionController extends ApiController
             ->where('anio', $anio)
             ->where('mes', $mes)
             ->where('formato', 'pdf');
+        $this->limitarEmpresas($q, $this->idsEmpresasVisibles($request, $consultoraId));
 
         if ($modulo = $request->query('modulo')) {
             $q->where('modulo', $modulo);
@@ -293,6 +352,9 @@ class ReporteDeclaracionController extends ApiController
 
         $inputFiles = [];
         foreach ($rows as $row) {
+            if (! is_string($row->ruta_archivo) || $row->ruta_archivo === '') {
+                return $this->fail('Uno o más archivos no están disponibles en almacenamiento.', 422);
+            }
             $abs = Storage::disk('local')->path($row->ruta_archivo);
             if (! is_readable($abs)) {
                 return $this->fail('Uno o más archivos no están disponibles en almacenamiento.', 422);
@@ -310,6 +372,7 @@ class ReporteDeclaracionController extends ApiController
         $ok = $this->mergePdfs($inputFiles, $out);
         if (! $ok['success']) {
             @unlink($out);
+
             return $this->fail($ok['message'], 500);
         }
 
@@ -325,13 +388,15 @@ class ReporteDeclaracionController extends ApiController
         if (! $consultoraId) {
             return $this->fail('Sin consultora asociada.', 403);
         }
+        $idsVisibles = $this->idsEmpresasVisibles($request, $consultoraId);
 
         $tipo = (string) ($request->query('tipo_declaracion') ?: 'mensual');
         if ($tipo === 'otros_documentos') {
             $doc = EmpresaClienteOtroDocumento::query()
                 ->whereKey($id)
-                ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
-                ->first();
+                ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId));
+            $this->limitarEmpresas($doc, $idsVisibles);
+            $doc = $doc->first();
             if (! $doc) {
                 return $this->fail('Documento no encontrado', 404);
             }
@@ -342,8 +407,9 @@ class ReporteDeclaracionController extends ApiController
         if ($tipo === 'aguinaldo') {
             $doc = DeclaracionAguinaldo::query()
                 ->whereKey($id)
-                ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
-                ->first();
+                ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId));
+            $this->limitarEmpresas($doc, $idsVisibles);
+            $doc = $doc->first();
             if (! $doc) {
                 return $this->fail('Declaración de aguinaldo no encontrada', 404);
             }
@@ -353,8 +419,9 @@ class ReporteDeclaracionController extends ApiController
 
         $doc = DeclaracionMensual::query()
             ->whereKey($id)
-            ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId))
-            ->first();
+            ->whereHas('empresaCliente', fn ($w) => $w->where('consultora_id', $consultoraId));
+        $this->limitarEmpresas($doc, $idsVisibles);
+        $doc = $doc->first();
 
         if (! $doc) {
             return $this->fail('Declaración no encontrada', 404);

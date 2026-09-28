@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -24,6 +25,7 @@ class Personal extends Model
         'nombres',
         'apellidos',
         'ci',
+        'numero_cua',
         'extension_ci',
         'fecha_nacimiento',
         'genero',
@@ -82,6 +84,23 @@ class Personal extends Model
     public function afp(): HasOne
     {
         return $this->hasOne(PersonalAfp::class, 'personal_id');
+    }
+
+    public function gestoraPeriodos(): HasMany
+    {
+        return $this->hasMany(PersonalGestoraPeriodo::class, 'personal_id');
+    }
+
+    public function scopeBusqueda(Builder $query, string $texto): Builder
+    {
+        $like = '%'.$texto.'%';
+
+        return $query->where(function (Builder $inner) use ($like): void {
+            $inner->where('nombres', 'like', $like)
+                ->orWhere('apellidos', 'like', $like)
+                ->orWhere('ci', 'like', $like)
+                ->orWhere('numero_cua', 'like', $like);
+        });
     }
 
     public function caja(): HasOne

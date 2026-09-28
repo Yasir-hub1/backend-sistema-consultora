@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class DeclaracionMensual extends Model
 {
@@ -43,6 +44,15 @@ class DeclaracionMensual extends Model
             'tamano_bytes' => 'integer',
             'fecha_subida' => 'datetime',
         ];
+    }
+
+    public function archivoDisponible(): bool
+    {
+        if (! is_string($this->ruta_archivo) || $this->ruta_archivo === '') {
+            return false;
+        }
+
+        return Storage::disk('local')->exists($this->ruta_archivo);
     }
 
     public function empresaCliente(): BelongsTo

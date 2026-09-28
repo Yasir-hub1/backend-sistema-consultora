@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Colaborador\DocumentoModuloController;
 use App\Http\Controllers\Api\Colaborador\EmpresaAsignadaController;
 use App\Http\Controllers\Api\Colaborador\EmpresaClienteMiEmpresaDocumentoController;
 use App\Http\Controllers\Api\Colaborador\EmpresaClienteOtroDocumentoController;
+use App\Http\Controllers\Api\Colaborador\GestoraPlanillaController;
 use App\Http\Controllers\Api\Colaborador\PersonalController as ColaboradorPersonalController;
 use App\Http\Controllers\Api\Consultora\AlertaController;
 use App\Http\Controllers\Api\Consultora\CatalogoConsultoraController;
@@ -25,12 +26,12 @@ use App\Http\Controllers\Api\EmpresaCliente\DashboardController as EmpresaClient
 use App\Http\Controllers\Api\EmpresaCliente\DeclaracionAguinaldoController as EmpresaClienteDeclaracionAguinaldoController;
 use App\Http\Controllers\Api\EmpresaCliente\DeclaracionMensualController as EmpresaClienteDeclaracionMensualController;
 use App\Http\Controllers\Api\EmpresaCliente\DocumentoDescargaController;
-use App\Http\Controllers\Api\EmpresaCliente\MiEmpresaDocumentoController;
 use App\Http\Controllers\Api\EmpresaCliente\MiConsultoraController;
+use App\Http\Controllers\Api\EmpresaCliente\MiEmpresaDocumentoController;
 use App\Http\Controllers\Api\EmpresaCliente\OtrosDocumentosController as EmpresaClienteOtrosDocumentosController;
 use App\Http\Controllers\Api\EmpresaCliente\PersonalController as EmpresaClientePersonalController;
-use App\Http\Controllers\Api\TramiteController;
 use App\Http\Controllers\Api\PushSubscriptionController;
+use App\Http\Controllers\Api\TramiteController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [LaboraAuthController::class, 'login']);
@@ -113,6 +114,13 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:consultora'])->prefix('consulto
 
 Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->prefix('colaborador')->group(function () {
     Route::get('/dashboard', ColaboradorDashboardController::class);
+    Route::get('/reportes/empresas-cliente', [ReporteDeclaracionController::class, 'empresas']);
+    Route::get('/reportes/declaraciones', [ReporteDeclaracionController::class, 'index']);
+    Route::get('/reportes/declaraciones/{id}/vista-previa', [ReporteDeclaracionController::class, 'vistaPrevia'])->whereNumber('id');
+    Route::get('/reportes/declaraciones/{id}/descargar', [ReporteDeclaracionController::class, 'descargar'])->whereNumber('id');
+    Route::post('/reportes/declaraciones/exportar-pdf', [ReporteDeclaracionController::class, 'exportarPdf']);
+    Route::get('/reportes/resumen-aportes', [ReporteResumenAportesController::class, 'datos']);
+    Route::get('/reportes/resumen-aportes/pdf', [ReporteResumenAportesController::class, 'pdf']);
     Route::get('/empresas-cliente', [EmpresaAsignadaController::class, 'index']);
     Route::patch('/empresas-cliente/{empresaClienteId}', [EmpresaAsignadaController::class, 'update'])->whereNumber('empresaClienteId');
     Route::get('/alertas', [ColaboradorAlertaController::class, 'index']);
@@ -148,6 +156,15 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->pref
         ->whereNumber('empresaClienteId');
     Route::post('/empresas-cliente/{empresaClienteId}/personal/registro-masivo', [ColaboradorPersonalController::class, 'cargarRegistroMasivo'])
         ->whereNumber('empresaClienteId');
+    Route::get('/empresas-cliente/{empresaClienteId}/gestora', [GestoraPlanillaController::class, 'index'])
+        ->whereNumber('empresaClienteId');
+    Route::get('/empresas-cliente/{empresaClienteId}/gestora/aportes', [GestoraPlanillaController::class, 'generar'])
+        ->whereNumber('empresaClienteId');
+    Route::get('/empresas-cliente/{empresaClienteId}/gestora/aportes/pdf', [GestoraPlanillaController::class, 'pdf'])
+        ->whereNumber('empresaClienteId');
+    Route::patch('/empresas-cliente/{empresaClienteId}/personal/{personalId}/gestora', [GestoraPlanillaController::class, 'update'])
+        ->whereNumber('empresaClienteId')
+        ->whereNumber('personalId');
     Route::get('/empresas-cliente/{empresaClienteId}/otros-documentos', [EmpresaClienteOtroDocumentoController::class, 'index'])
         ->whereNumber('empresaClienteId');
     Route::post('/empresas-cliente/{empresaClienteId}/otros-documentos', [EmpresaClienteOtroDocumentoController::class, 'store'])

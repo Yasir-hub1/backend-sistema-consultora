@@ -28,16 +28,25 @@ class DeclaracionMensualController extends ApiController
             return $this->fail('Sin acceso', 403);
         }
 
+        $mesGestion = $request->string('mes_gestion')->toString();
+        if ($mesGestion !== '' && ! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $mesGestion)) {
+            return $this->fail('El mes de gestión no es válido.', 422);
+        }
+
         $items = DeclaracionMensual::query()
             ->where('empresa_cliente_id', $empresaClienteId)
             ->when(
                 in_array($request->query('modulo'), ['afp', 'caja', 'ministerio'], true),
                 fn ($q) => $q->where('modulo', $request->query('modulo'))
             )
+            ->when($mesGestion !== '', function ($q) use ($mesGestion) {
+                [$anio, $mes] = array_map('intval', explode('-', $mesGestion));
+                $q->where('anio', $anio)->where('mes', $mes);
+            })
             ->orderByDesc('anio')
             ->orderByDesc('mes')
             ->orderBy('modulo')
-            ->limit(36)
+            ->when($mesGestion === '', fn ($q) => $q->limit(36))
             ->get()
             ->map(fn (DeclaracionMensual $d) => $this->serializar($d));
 
@@ -56,7 +65,7 @@ class DeclaracionMensualController extends ApiController
         $request->validate([
             'modulo' => ['required', 'in:afp,caja,ministerio'],
             'mes_gestion' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
-            'archivo' => ['required', 'file', 'max:15360', 'mimes:pdf'],
+            'archivo' => ['nullable', 'file', 'max:15360', 'mimes:pdf'],
             'monto_total_ganado' => ['nullable', 'numeric', 'min:0'],
             'monto_deposito_cns' => ['nullable', 'numeric', 'min:0'],
             'monto_aportes_gestoras' => ['nullable', 'numeric', 'min:0'],
@@ -75,11 +84,8 @@ class DeclaracionMensualController extends ApiController
         $mes = (int) $parts[1];
 
         $file = $request->file('archivo');
-        $ext = strtolower($file->getClientOriginalExtension());
-        $colabId = $u->colaborador?->id;
-
-        $consultoraId = $emp->consultora_id;
-        $dir = "docs/consultora_{$consultoraId}/empresa_{$empresaClienteId}/declaraciones_mensuales";
+        $montos = $this->montosNormalizadosParaModulo($modulo, $request);
+        $tieneMontos = collect($montos)->contains(static fn ($valor): bool => $valor !== null);
 
         $existente = DeclaracionMensual::query()
             ->where('empresa_cliente_id', $empresaClienteId)
@@ -88,13 +94,36 @@ class DeclaracionMensualController extends ApiController
             ->where('modulo', $modulo)
             ->first();
 
-        if ($existente && Storage::disk('local')->exists($existente->ruta_archivo)) {
-            Storage::disk('local')->delete($existente->ruta_archivo);
+        if (! $file && ! $tieneMontos && ! $existente) {
+            return $this->fail('Indica al menos un monto o adjunta el PDF.', 422);
         }
 
-        $stored = $file->store($dir, 'local');
+        $colabId = $u->colaborador?->id;
+        $datos = [
+            'monto_total_ganado' => $montos['monto_total_ganado'],
+            'monto_deposito_cns' => $montos['monto_deposito_cns'],
+            'monto_aportes_gestoras' => $montos['monto_aportes_gestoras'],
+            'monto_aporte_solidario_gestora' => $montos['monto_aporte_solidario_gestora'],
+            'monto_planilla_mensual_mdt' => $montos['monto_planilla_mensual_mdt'],
+            'monto_seprec_registro_poder_consultora' => $montos['monto_seprec_registro_poder_consultora'],
+            'subido_por' => $colabId,
+            'fecha_subida' => now(),
+        ];
 
-        $montos = $this->montosNormalizadosParaModulo($modulo, $request);
+        if ($file) {
+            if ($existente?->archivoDisponible()) {
+                Storage::disk('local')->delete($existente->ruta_archivo);
+            }
+
+            $consultoraId = $emp->consultora_id;
+            $dir = "docs/consultora_{$consultoraId}/empresa_{$empresaClienteId}/declaraciones_mensuales";
+            $stored = $file->store($dir, 'local');
+            $datos['nombre_archivo'] = basename($stored);
+            $datos['nombre_original'] = $file->getClientOriginalName();
+            $datos['ruta_archivo'] = $stored;
+            $datos['formato'] = strtolower($file->getClientOriginalExtension());
+            $datos['tamano_bytes'] = $file->getSize();
+        }
 
         $row = DeclaracionMensual::query()->updateOrCreate(
             [
@@ -103,21 +132,7 @@ class DeclaracionMensualController extends ApiController
                 'mes' => $mes,
                 'modulo' => $modulo,
             ],
-            [
-                'monto_total_ganado' => $montos['monto_total_ganado'],
-                'monto_deposito_cns' => $montos['monto_deposito_cns'],
-                'monto_aportes_gestoras' => $montos['monto_aportes_gestoras'],
-                'monto_aporte_solidario_gestora' => $montos['monto_aporte_solidario_gestora'],
-                'monto_planilla_mensual_mdt' => $montos['monto_planilla_mensual_mdt'],
-                'monto_seprec_registro_poder_consultora' => $montos['monto_seprec_registro_poder_consultora'],
-                'nombre_archivo' => basename($stored),
-                'nombre_original' => $file->getClientOriginalName(),
-                'ruta_archivo' => $stored,
-                'formato' => $ext,
-                'tamano_bytes' => $file->getSize(),
-                'subido_por' => $colabId,
-                'fecha_subida' => now(),
-            ]
+            $datos,
         );
 
         $empresa = EmpresaCliente::query()->find($empresaClienteId);
@@ -130,6 +145,9 @@ class DeclaracionMensualController extends ApiController
             ];
             $modLabel = $modLabels[$modulo] ?? strtoupper($modulo);
             $periodo = ucfirst($mesNombre).' '.$anio;
+            $detalle = $file
+                ? "Se cargó la declaración {$modLabel} correspondiente a {$periodo}."
+                : "Se registraron montos de la declaración {$modLabel} correspondiente a {$periodo}.";
 
             Alerta::create([
                 'consultora_id' => $empresa->consultora_id,
@@ -139,7 +157,7 @@ class DeclaracionMensualController extends ApiController
                 'modulo' => 'declaracion_mensual',
                 'nivel' => 'normal',
                 'titulo' => 'Nueva declaración mensual',
-                'descripcion' => "Se cargó la declaración {$modLabel} correspondiente a {$periodo}.",
+                'descripcion' => $detalle,
                 'generada_auto' => true,
                 'contexto' => [
                     'paths' => [
@@ -172,8 +190,8 @@ class DeclaracionMensualController extends ApiController
         if (! $dec) {
             return $this->fail('No encontrada', 404);
         }
-        if (! Storage::disk('local')->exists($dec->ruta_archivo)) {
-            return $this->fail('Archivo no disponible', 404);
+        if (! $dec->archivoDisponible()) {
+            return $this->fail('Esta declaración no tiene PDF.', 404);
         }
 
         return response()->download(
@@ -195,6 +213,9 @@ class DeclaracionMensualController extends ApiController
             ->first();
         if (! $dec) {
             return $this->fail('No encontrada', 404);
+        }
+        if (! $dec->archivoDisponible()) {
+            return $this->fail('Esta declaración no tiene PDF.', 404);
         }
         $abs = Storage::disk('local')->path($dec->ruta_archivo);
         if (! is_readable($abs)) {
@@ -259,6 +280,7 @@ class DeclaracionMensualController extends ApiController
             'modulo' => $d->modulo,
             'periodo_label' => ucfirst($mesNombre).' '.((int) $d->anio),
             'mes_gestion' => sprintf('%04d-%02d', $d->anio, $d->mes),
+            'tiene_archivo' => $d->archivoDisponible(),
             'nombre_original' => $d->nombre_original,
             'formato' => $d->formato,
             'tamano_bytes' => $d->tamano_bytes,

@@ -9,7 +9,9 @@ use App\Models\Personal;
 use App\Models\PersonalCaja;
 use App\Services\ColaboradorAutorizacionService;
 use App\Services\CumplimientoModuloService;
+use App\Services\GestoraPlanillaService;
 use App\Services\PersonalRegistroService;
+use App\Support\NumeroCua;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,7 +31,8 @@ class PersonalController extends ApiController
 {
     public function __construct(
         private PersonalRegistroService $personalRegistroService,
-        private CumplimientoModuloService $cumplimientoModuloService
+        private CumplimientoModuloService $cumplimientoModuloService,
+        private GestoraPlanillaService $gestoraPlanillaService,
     ) {}
 
     private function empresaAccesible(Request $request, int $empresaId): ?EmpresaCliente
@@ -46,6 +49,7 @@ class PersonalController extends ApiController
 
         if (is_string($raw)) {
             $decoded = json_decode($raw, true);
+
             return is_array($decoded) ? $decoded : [];
         }
 
@@ -105,12 +109,7 @@ class PersonalController extends ApiController
         if ($s = $request->get('search')) {
             $s = trim((string) $s);
             if ($s !== '') {
-                $like = '%'.$s.'%';
-                $q->where(function ($w) use ($like) {
-                    $w->where('nombres', 'like', $like)
-                        ->orWhere('apellidos', 'like', $like)
-                        ->orWhere('ci', 'like', $like);
-                });
+                $q->busqueda($s);
             }
         }
 
@@ -280,6 +279,9 @@ class PersonalController extends ApiController
             'nombres' => ['required', 'string', 'max:100'],
             'apellidos' => ['required', 'string', 'max:100'],
             'ci' => ['required', 'string', 'max:20'],
+            'numero_cua' => ['nullable', 'string', 'max:40'],
+            'dias_trabajados' => ['nullable', 'integer', 'min:0', 'max:31'],
+            'total_ganado' => ['nullable', 'numeric', 'min:0'],
             'fecha_nacimiento' => ['nullable', 'date'],
             'cargo' => ['nullable', 'string', 'max:150'],
             'fecha_ingreso' => ['required', 'date'],
@@ -302,6 +304,19 @@ class PersonalController extends ApiController
             return $this->fail('CI ya registrado en esta empresa.', 422);
         }
 
+        $numeroCua = $this->resolverNumeroCua($request->input('numero_cua'), $empresaClienteId);
+        if ($numeroCua instanceof JsonResponse) {
+            return $numeroCua;
+        }
+
+        $periodoGestora = $this->gestoraPlanillaService->normalizarPeriodoInicial(
+            $request->input('dias_trabajados'),
+            $request->input('total_ganado'),
+        );
+        if (isset($periodoGestora['error'])) {
+            return $this->fail($periodoGestora['error'], 422);
+        }
+
         $colabId = $request->user()->colaborador?->id;
 
         $per = Personal::create([
@@ -310,6 +325,7 @@ class PersonalController extends ApiController
             'nombres' => $data['nombres'],
             'apellidos' => $data['apellidos'],
             'ci' => $data['ci'],
+            'numero_cua' => $numeroCua,
             'fecha_nacimiento' => $data['fecha_nacimiento'] ?? null,
             'cargo' => $data['cargo'] ?? 'Personal',
             'fecha_ingreso' => $data['fecha_ingreso'],
@@ -351,6 +367,10 @@ class PersonalController extends ApiController
         ], [
             'numero_asegurado' => $data['nro_caja'] ?? null,
         ]);
+
+        if ($periodoGestora['omitir'] !== true) {
+            $this->gestoraPlanillaService->guardarPeriodoInicial($per, $periodoGestora['dias'], $periodoGestora['total']);
+        }
 
         $empresa = EmpresaCliente::query()->find($empresaClienteId);
         if ($empresa) {
@@ -412,6 +432,7 @@ class PersonalController extends ApiController
             'nombres' => ['sometimes', 'string', 'max:100'],
             'apellidos' => ['sometimes', 'string', 'max:100'],
             'ci' => ['sometimes', 'string', 'max:20'],
+            'numero_cua' => ['sometimes', 'nullable', 'string', 'max:40'],
             'extension_ci' => ['nullable', 'string', 'max:4'],
             'fecha_nacimiento' => ['nullable', 'date'],
             'genero' => ['nullable', 'string', 'max:32'],
@@ -453,6 +474,14 @@ class PersonalController extends ApiController
             if ($dup) {
                 return $this->fail('CI ya registrado en esta empresa.', 422);
             }
+        }
+
+        if ($request->exists('numero_cua')) {
+            $numeroCua = $this->resolverNumeroCua($request->input('numero_cua'), $empresaClienteId, $per->id);
+            if ($numeroCua instanceof JsonResponse) {
+                return $numeroCua;
+            }
+            $data['numero_cua'] = $numeroCua;
         }
 
         $per->fill($data);
@@ -510,6 +539,9 @@ class PersonalController extends ApiController
             'NOMBRES',
             'APELLIDOS',
             'CI',
+            'NRO_CUA',
+            'DIAS_TRABAJADOS',
+            'TOTAL_GANADO',
             'FECHA_NACIMIENTO(YYYY-MM-DD)',
             'FECHA_INGRESO(YYYY-MM-DD)',
             'CARGO',
@@ -524,6 +556,9 @@ class PersonalController extends ApiController
             'Juan',
             'Pérez',
             '1234567 LP',
+            '10000001',
+            '30',
+            '8500.00',
             '',
             now()->toDateString(),
             'Personal',
@@ -607,10 +642,38 @@ class PersonalController extends ApiController
                 ? trim((string) ($line[$map['FECHA_NACIMIENTO(YYYY-MM-DD)']] ?? ''))
                 : '';
 
+            $nombres = trim((string) ($line[$map['NOMBRES']] ?? ''));
+            $apellidos = trim((string) ($line[$map['APELLIDOS']] ?? ''));
+            $ci = trim((string) ($line[$map['CI']] ?? ''));
+            if ($nombres === '' && $apellidos === '' && $ci === '') {
+                continue;
+            }
+
+            $columnaCua = $map['NRO_CUA'] ?? $map['NRO_RUA'] ?? $map['CUA_RUA'] ?? $map['RUA'] ?? null;
+            $cuaCrudo = $columnaCua !== null ? ($line[$columnaCua] ?? null) : null;
+            $numeroCua = $this->resolverNumeroCua($cuaCrudo, $empresaClienteId);
+            if ($numeroCua instanceof JsonResponse) {
+                $mensaje = json_decode((string) $numeroCua->getContent(), true);
+                $errores[] = ['fila' => $i, 'mensaje' => is_array($mensaje) ? ($mensaje['message'] ?? 'CUA/RUA inválido.') : 'CUA/RUA inválido.'];
+
+                continue;
+            }
+
+            $periodoGestora = $this->gestoraPlanillaService->normalizarPeriodoInicial(
+                isset($map['DIAS_TRABAJADOS']) ? ($line[$map['DIAS_TRABAJADOS']] ?? null) : null,
+                isset($map['TOTAL_GANADO']) ? ($line[$map['TOTAL_GANADO']] ?? null) : null,
+            );
+            if (isset($periodoGestora['error'])) {
+                $errores[] = ['fila' => $i, 'mensaje' => $periodoGestora['error']];
+
+                continue;
+            }
+
             $payload = [
-                'nombres' => trim((string) ($line[$map['NOMBRES']] ?? '')),
-                'apellidos' => trim((string) ($line[$map['APELLIDOS']] ?? '')),
-                'ci' => trim((string) ($line[$map['CI']] ?? '')),
+                'nombres' => $nombres,
+                'apellidos' => $apellidos,
+                'ci' => $ci,
+                'numero_cua' => $numeroCua,
                 'fecha_nacimiento' => $fnRaw === '' ? null : $fnRaw,
                 'fecha_ingreso' => trim((string) ($line[$map['FECHA_INGRESO(YYYY-MM-DD)']] ?? '')),
                 'cargo' => isset($map['CARGO']) ? trim((string) ($line[$map['CARGO']] ?? '')) : '',
@@ -622,11 +685,6 @@ class PersonalController extends ApiController
                     : '',
                 'contactos_referencia' => $contactos,
             ];
-
-            $emptyRow = $payload['nombres'] === '' && $payload['apellidos'] === '' && $payload['ci'] === '';
-            if ($emptyRow) {
-                continue;
-            }
 
             $validator = Validator::make($payload, [
                 'nombres' => ['required', 'string', 'max:100'],
@@ -657,13 +715,14 @@ class PersonalController extends ApiController
             }
 
             try {
-                DB::transaction(function () use ($payload, $empresaClienteId, $colabId) {
+                DB::transaction(function () use ($payload, $empresaClienteId, $colabId, $periodoGestora) {
                     $per = Personal::create([
                         'empresa_id' => $empresaClienteId,
                         'registrado_por' => $colabId,
                         'nombres' => $payload['nombres'],
                         'apellidos' => $payload['apellidos'],
                         'ci' => $payload['ci'],
+                        'numero_cua' => $payload['numero_cua'],
                         'fecha_nacimiento' => $payload['fecha_nacimiento']
                             ? Carbon::parse($payload['fecha_nacimiento'])
                             : null,
@@ -675,6 +734,14 @@ class PersonalController extends ApiController
                     ]);
 
                     $this->personalRegistroService->crearConModulos($per, [], []);
+
+                    if ($periodoGestora['omitir'] !== true) {
+                        $this->gestoraPlanillaService->guardarPeriodoInicial(
+                            $per,
+                            $periodoGestora['dias'],
+                            $periodoGestora['total'],
+                        );
+                    }
 
                     $empresa = EmpresaCliente::query()->find($empresaClienteId);
                     if ($empresa) {
@@ -717,5 +784,29 @@ class PersonalController extends ApiController
             'errores' => $errores,
             'procesados' => $creados + count($errores),
         ], $creados > 0 ? 'Carga masiva procesada.' : 'No se pudo crear ningún registro.');
+    }
+
+    /**
+     * @return string|null|JsonResponse null cuando el campo viene vacío
+     */
+    private function resolverNumeroCua(mixed $raw, int $empresaId, ?int $exceptoId = null): string|null|JsonResponse
+    {
+        $resuelto = NumeroCua::resolver($raw);
+        if ($resuelto['error'] !== null) {
+            return $this->fail($resuelto['error'], 422);
+        }
+
+        if ($resuelto['valor'] !== null) {
+            $ocupado = Personal::query()
+                ->where('empresa_id', $empresaId)
+                ->where('numero_cua', $resuelto['valor'])
+                ->when($exceptoId !== null, fn ($query) => $query->where('id', '!=', $exceptoId))
+                ->exists();
+            if ($ocupado) {
+                return $this->fail('El CUA/RUA ya está registrado en esta empresa.', 422);
+            }
+        }
+
+        return $resuelto['valor'];
     }
 }

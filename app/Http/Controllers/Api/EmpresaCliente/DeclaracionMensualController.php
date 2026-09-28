@@ -58,8 +58,8 @@ class DeclaracionMensualController extends ApiController
         if (! $dec) {
             return $this->fail('No encontrada', 404);
         }
-        if (! Storage::disk('local')->exists($dec->ruta_archivo)) {
-            return $this->fail('Archivo no disponible', 404);
+        if (! $dec->archivoDisponible()) {
+            return $this->fail('Esta declaración no tiene PDF.', 404);
         }
 
         return response()->download(
@@ -82,8 +82,8 @@ class DeclaracionMensualController extends ApiController
         if (! $dec) {
             return $this->fail('No encontrada', 404);
         }
-        if (! Storage::disk('local')->exists($dec->ruta_archivo)) {
-            return $this->fail('Archivo no disponible', 404);
+        if (! $dec->archivoDisponible()) {
+            return $this->fail('Esta declaración no tiene PDF.', 404);
         }
 
         $path = Storage::disk('local')->path($dec->ruta_archivo);
@@ -132,14 +132,19 @@ class DeclaracionMensualController extends ApiController
 
             if ($decs->isEmpty()) {
                 $faltantes[] = $mg;
+
                 continue;
             }
+            $conArchivo = 0;
             foreach ($decs as $dec) {
-                if (! Storage::disk('local')->exists($dec->ruta_archivo)) {
-                    $faltantes[] = $mg.'-'.$dec->modulo;
+                if (! $dec->archivoDisponible()) {
                     continue;
                 }
                 $declaraciones[] = $dec;
+                $conArchivo++;
+            }
+            if ($conArchivo === 0) {
+                $faltantes[] = $mg;
             }
         }
 
@@ -222,6 +227,7 @@ class DeclaracionMensualController extends ApiController
             'modulo' => $d->modulo,
             'periodo_label' => ucfirst($mesNombre).' '.((int) $d->anio),
             'mes_gestion' => sprintf('%04d-%02d', $d->anio, $d->mes),
+            'tiene_archivo' => $d->archivoDisponible(),
             'nombre_original' => $d->nombre_original,
             'formato' => $d->formato,
             'tamano_bytes' => $d->tamano_bytes,
