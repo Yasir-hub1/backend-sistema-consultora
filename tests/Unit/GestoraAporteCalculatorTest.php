@@ -8,12 +8,12 @@ beforeEach(function (): void {
     $this->calc = new GestoraAporteCalculator;
 });
 
-it('calcula el ejemplo progresivo de 38000 como 250 + 650 + 300', function (): void {
+it('calcula el ejemplo progresivo de 38000 como 287.50 + 746.20 + 344.40', function (): void {
     $fila = $this->calc->calcularTrabajador('38000');
 
-    expect($fila['fondo_1'])->toBe('250.00')
-        ->and($fila['fondo_5'])->toBe('650.00')
-        ->and($fila['fondo_10'])->toBe('300.00')
+    expect($fila['fondo_1'])->toBe('287.50')
+        ->and($fila['fondo_5'])->toBe('746.20')
+        ->and($fila['fondo_10'])->toBe('344.40')
         ->and($fila['cns'])->toBe('3800.00')
         ->and($fila['jubilacion'])->toBe('3800.00')
         ->and($fila['riesgo_profesional'])->toBe('649.80')
@@ -21,8 +21,8 @@ it('calcula el ejemplo progresivo de 38000 como 250 + 650 + 300', function (): v
         ->and($fila['vivienda'])->toBe('760.00')
         ->and($fila['patronal_solidario'])->toBe('1330.00')
         ->and($fila['asegurado_solidario'])->toBe('190.00')
-        ->and($fila['subtotal_solidarios'])->toBe('2720.00')
-        ->and($fila['total_gestora'])->toBe('8769.60');
+        ->and($fila['subtotal_solidarios'])->toBe('2898.10')
+        ->and($fila['total_gestora'])->toBe('8947.70');
 });
 
 it('deja en cero el aporte nacional solidario cuando el total no supera 13000', function (): void {
@@ -43,10 +43,10 @@ it('aplica solo los tramos cuya diferencia es positiva', function (): void {
     $en25 = $this->calc->calcularTrabajador('25000');
     $en35 = $this->calc->calcularTrabajador('35000');
 
-    expect($en25['fondo_1'])->toBe('120.00')
+    expect($en25['fondo_1'])->toBe('138.00')
         ->and($en25['fondo_5'])->toBe('0.00')
-        ->and($en35['fondo_1'])->toBe('220.00')
-        ->and($en35['fondo_5'])->toBe('500.00')
+        ->and($en35['fondo_1'])->toBe('253.00')
+        ->and($en35['fondo_5'])->toBe('574.00')
         ->and($en35['fondo_10'])->toBe('0.00');
 });
 

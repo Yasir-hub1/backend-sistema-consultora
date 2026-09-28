@@ -13,8 +13,9 @@ namespace App\Services;
  * jubilación 10%. Subtotal plano Gestora = 19,92% del total ganado.
  *
  * El aporte nacional solidario es adicional y acumulativo: cada tasa se aplica
- * al excedente completo sobre su umbral cuando la diferencia es positiva
- * (ejemplo total ganado 38.000 → 250 + 650 + 300 = 1.200).
+ * al excedente completo sobre su umbral cuando la diferencia es positiva.
+ * Factores 0,0115, 0,0574 y 0,1148 (1,15%, 5,74% y 11,48%).
+ * Ejemplo total ganado 38.000 → 287,50 + 746,20 + 344,40 = 1.378,10.
  */
 final class GestoraAporteCalculator
 {
@@ -36,15 +37,15 @@ final class GestoraAporteCalculator
 
     public const UMBRAL_FONDO_1 = '13000.00';
 
-    public const TASA_FONDO_1 = '0.01';
+    public const TASA_FONDO_1 = '0.0115';
 
     public const UMBRAL_FONDO_5 = '25000.00';
 
-    public const TASA_FONDO_5 = '0.05';
+    public const TASA_FONDO_5 = '0.0574';
 
     public const UMBRAL_FONDO_10 = '35000.00';
 
-    public const TASA_FONDO_10 = '0.10';
+    public const TASA_FONDO_10 = '0.1148';
 
     /** @var list<string> */
     private const CAMPOS_SUMA = [
