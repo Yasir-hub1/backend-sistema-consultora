@@ -18,7 +18,10 @@ class EmpresaAsignadaController extends ApiController
         if ($u->tipo === 'consultora' && ($e = $u->empresaConsultoraTitular)) {
             $totalCartera = $e->empresasCliente()->count();
 
-            $q = $e->empresasCliente()->with('usuario')->orderBy('nombre');
+            $q = $e->empresasCliente()
+                ->with('usuario')
+                ->withCount(['otrosDocumentosPersonal as otros_documentos_count', 'documentosEmpresa as documentos_legales_count'])
+                ->orderBy('nombre');
             if ($s = trim((string) $request->get('search'))) {
                 if ($s !== '') {
                     $like = '%'.$s.'%';
@@ -55,6 +58,7 @@ class EmpresaAsignadaController extends ApiController
         $q = $c->empresasCliente()
             ->wherePivot('activo', true)
             ->with('usuario')
+            ->withCount(['otrosDocumentosPersonal as otros_documentos_count', 'documentosEmpresa as documentos_legales_count'])
             ->orderBy('empresas_cliente.nombre');
 
         if ($s = trim((string) $request->get('search'))) {

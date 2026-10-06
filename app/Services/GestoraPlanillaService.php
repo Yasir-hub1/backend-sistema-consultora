@@ -54,6 +54,29 @@ final class GestoraPlanillaService
     }
 
     /**
+     * Conteos del periodo sobre todo el personal vigente, no solo la página listada.
+     *
+     * @return array{vigentes: int, habilitados: int, con_total: int, deshabilitados: int}
+     */
+    public function resumenPeriodo(int $empresaId, int $anio, int $mes): array
+    {
+        $filas = $this->consultaPeriodo($empresaId, $anio, $mes, null)
+            ->get()
+            ->map(fn (Personal $personal): array => $this->filaListado($personal));
+
+        $habilitadas = $filas->where('habilitado', true);
+
+        return [
+            'vigentes' => $filas->count(),
+            'habilitados' => $habilitadas->count(),
+            'con_total' => $habilitadas
+                ->filter(fn (array $fila): bool => bccomp($fila['total_ganado'], '0.00', 2) === 1)
+                ->count(),
+            'deshabilitados' => $filas->count() - $habilitadas->count(),
+        ];
+    }
+
+    /**
      * @param  array{numero_cua: mixed, dias_trabajados: int, total_ganado: mixed, habilitado: bool}  $datos
      * @return array{fila: array<string, mixed>}|array{error: string}
      */
@@ -71,6 +94,10 @@ final class GestoraPlanillaService
         $total = $this->calculator->normalizarMonto($datos['total_ganado'] ?? '0');
         if (bccomp($total, '0.00', 2) === -1) {
             return ['error' => 'El total ganado no puede ser negativo.'];
+        }
+
+        if (! filter_var($datos['habilitado'], FILTER_VALIDATE_BOOLEAN) && $this->hayDeshabilitados([(int) $personal->id], $anio, $mes)) {
+            return ['error' => 'Esta persona está deshabilitada en este mes. Habilitala primero para cambiar sus datos.'];
         }
 
         DB::transaction(function () use ($personal, $anio, $mes, $cua, $datos, $total): void {
@@ -96,6 +123,46 @@ final class GestoraPlanillaService
         }]);
 
         return ['fila' => $this->filaListado($personal)];
+    }
+
+    /**
+     * Guarda días y total ganado de varias personas del periodo. Conserva el estado habilitado de cada una.
+     *
+     * @param  list<array{personal_id: int, dias_trabajados: int, total_ganado: mixed}>  $filas
+     * @return array{guardados: int}|array{error: string}
+     */
+    public function actualizarLote(int $empresaId, int $anio, int $mes, array $filas): array
+    {
+        $ids = array_map(static fn (array $fila): int => (int) $fila['personal_id'], $filas);
+
+        $vigentes = $this->consultaPeriodo($empresaId, $anio, $mes, null)
+            ->whereIn('id', $ids)
+            ->pluck('id')
+            ->all();
+
+        if (count($vigentes) !== count(array_unique($ids))) {
+            return ['error' => 'Alguna persona ya no está vigente en este mes. Recargá la lista e intentá de nuevo.'];
+        }
+
+        if ($this->hayDeshabilitados($ids, $anio, $mes)) {
+            return ['error' => 'Hay personas deshabilitadas en este mes. Habilitalas primero para cargar sus días y total ganado.'];
+        }
+
+        DB::transaction(function () use ($anio, $mes, $filas): void {
+            foreach ($filas as $fila) {
+                $periodo = PersonalGestoraPeriodo::query()->firstOrNew([
+                    'personal_id' => (int) $fila['personal_id'],
+                    'anio' => $anio,
+                    'mes' => $mes,
+                ]);
+                $periodo->dias_trabajados = (int) $fila['dias_trabajados'];
+                $periodo->total_ganado = $this->calculator->normalizarMonto($fila['total_ganado']);
+                $periodo->habilitado ??= true;
+                $periodo->save();
+            }
+        });
+
+        return ['guardados' => count($filas)];
     }
 
     /**
@@ -179,7 +246,7 @@ final class GestoraPlanillaService
                 continue;
             }
 
-            if (bccomp((string) $vista['total_ganado'], '0.00', 2) !== 1) {
+            if (bccomp($vista['total_ganado'], '0.00', 2) !== 1) {
                 $sinTotal++;
 
                 continue;
@@ -196,7 +263,6 @@ final class GestoraPlanillaService
         }
 
         $totales = $this->calculator->sumarFilas($filas);
-        $referencias = $this->calculator->referenciasPlanas($filas);
 
         return [
             'periodo' => [
@@ -206,23 +272,7 @@ final class GestoraPlanillaService
             ],
             'filas' => $filas,
             'totales' => $totales,
-            'consolidado' => [
-                'sip' => $totales['subtotal_sip'],
-                'vivienda' => $totales['vivienda'],
-                'solidarios' => $totales['subtotal_solidarios'],
-                'gestora' => $totales['total_gestora'],
-                'cns' => $totales['cns'],
-                'total_general' => $totales['total_general'],
-                'total_ganado' => $totales['total_ganado'],
-                'ans' => $this->calculator->normalizarMonto(
-                    bcadd(
-                        bcadd($totales['fondo_1'], $totales['fondo_5'], 2),
-                        $totales['fondo_10'],
-                        2,
-                    )
-                ),
-                ...$referencias,
-            ],
+            'consolidado' => $this->calculator->consolidar($totales),
             'omitidos' => [
                 'deshabilitados' => $deshabilitados,
                 'sin_total_ganado' => $sinTotal,
@@ -294,6 +344,19 @@ final class GestoraPlanillaService
             'habilitado' => $periodo?->habilitado ?? true,
             'periodo_guardado' => $periodo !== null,
         ];
+    }
+
+    /**
+     * @param  list<int>  $personalIds
+     */
+    private function hayDeshabilitados(array $personalIds, int $anio, int $mes): bool
+    {
+        return PersonalGestoraPeriodo::query()
+            ->whereIn('personal_id', $personalIds)
+            ->where('anio', $anio)
+            ->where('mes', $mes)
+            ->where('habilitado', false)
+            ->exists();
     }
 
     private function cuaOcupado(int $empresaId, string $cua, int $exceptoId): bool

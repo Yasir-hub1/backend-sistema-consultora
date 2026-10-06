@@ -162,6 +162,8 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->pref
         ->whereNumber('empresaClienteId');
     Route::get('/empresas-cliente/{empresaClienteId}/gestora/aportes/pdf', [GestoraPlanillaController::class, 'pdf'])
         ->whereNumber('empresaClienteId');
+    Route::patch('/empresas-cliente/{empresaClienteId}/gestora/periodo', [GestoraPlanillaController::class, 'actualizarLote'])
+        ->whereNumber('empresaClienteId');
     Route::patch('/empresas-cliente/{empresaClienteId}/personal/{personalId}/gestora', [GestoraPlanillaController::class, 'update'])
         ->whereNumber('empresaClienteId')
         ->whereNumber('personalId');

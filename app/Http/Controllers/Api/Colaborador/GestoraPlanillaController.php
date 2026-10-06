@@ -9,6 +9,7 @@ use App\Models\DeclaracionMensual;
 use App\Models\Personal;
 use App\Services\CartaAportesPdfService;
 use App\Services\ColaboradorAutorizacionService;
+use App\Services\GestoraAporteCalculator;
 use App\Services\GestoraPlanillaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ class GestoraPlanillaController extends ApiController
     public function __construct(
         private readonly GestoraPlanillaService $gestoraPlanillaService,
         private readonly CartaAportesPdfService $cartaAportesPdf,
+        private readonly GestoraAporteCalculator $calculator,
     ) {}
 
     public function index(Request $request, int $empresaClienteId): JsonResponse
@@ -42,6 +44,7 @@ class GestoraPlanillaController extends ApiController
             'current_page' => $pagina->currentPage(),
             'last_page' => $pagina->lastPage(),
             'total' => $pagina->total(),
+            'resumen' => $this->gestoraPlanillaService->resumenPeriodo($empresaClienteId, $periodo['anio'], $periodo['mes']),
             'periodo' => [
                 'anio' => $periodo['anio'],
                 'mes' => $periodo['mes'],
@@ -74,8 +77,13 @@ class GestoraPlanillaController extends ApiController
         $periodo = $this->periodo($request);
         $planilla = $this->gestoraPlanillaService->generar($empresaClienteId, $periodo['anio'], $periodo['mes']);
         $consolidado = $planilla['consolidado'];
-        if (bccomp((string) $consolidado['total_ganado'], '0.00', 2) !== 1) {
+        if (bccomp($consolidado['total_ganado'], '0.00', 2) !== 1) {
             return $this->fail('No hay total ganado para armar la carta de este periodo.', 422);
+        }
+
+        $empresa->loadMissing('consultora');
+        if (! $empresa->consultora) {
+            return $this->fail('La empresa no tiene consultora asociada.', 422);
         }
 
         $declaraciones = DeclaracionMensual::query()
@@ -84,25 +92,28 @@ class GestoraPlanillaController extends ApiController
             ->where('mes', $periodo['mes'])
             ->get(['monto_planilla_mensual_mdt', 'monto_seprec_registro_poder_consultora']);
 
-        $depositoCns = (float) $consolidado['cns'];
-        $aportesGestora = (float) $consolidado['referencia_1992'];
-        $aporteSolidario = (float) $consolidado['ans'];
-        $planillaMdt = (float) $declaraciones->sum(fn (DeclaracionMensual $row): float => (float) $row->monto_planilla_mensual_mdt);
-        $seprec = (float) $declaraciones->sum(fn (DeclaracionMensual $row): float => (float) $row->monto_seprec_registro_poder_consultora);
-
-        $empresa->loadMissing('consultora');
-        if (! $empresa->consultora) {
-            return $this->fail('La empresa no tiene consultora asociada.', 422);
-        }
+        $planillaMdt = $this->calculator->sumar(
+            ...$declaraciones->map(fn (DeclaracionMensual $row): string => $this->calculator->normalizarMonto($row->monto_planilla_mensual_mdt))->all(),
+        );
+        $seprec = $this->calculator->sumar(
+            ...$declaraciones->map(fn (DeclaracionMensual $row): string => $this->calculator->normalizarMonto($row->monto_seprec_registro_poder_consultora))->all(),
+        );
+        $totalAportes = $this->calculator->sumar(
+            $consolidado['cns'],
+            $consolidado['aporte_afp'],
+            $consolidado['ans'],
+            $planillaMdt,
+            $seprec,
+        );
 
         return $this->cartaAportesPdf->responder($empresa, $empresa->consultora, [
             'total_ganado' => (float) $consolidado['total_ganado'],
-            'deposito_cns' => $depositoCns,
-            'aportes_gestora' => $aportesGestora,
-            'aporte_solidario' => $aporteSolidario,
-            'planilla_mdt' => $planillaMdt,
-            'seprec' => $seprec,
-            'total_aportes' => $depositoCns + $aportesGestora + $aporteSolidario + $planillaMdt + $seprec,
+            'deposito_cns' => (float) $consolidado['cns'],
+            'aportes_gestora' => (float) $consolidado['aporte_afp'],
+            'aporte_solidario' => (float) $consolidado['ans'],
+            'planilla_mdt' => (float) $planillaMdt,
+            'seprec' => (float) $seprec,
+            'total_aportes' => (float) $totalAportes,
         ], $periodo['anio'], $periodo['mes'], true);
     }
 
@@ -129,8 +140,10 @@ class GestoraPlanillaController extends ApiController
             'mes' => ['required', 'integer', 'min:1', 'max:12'],
             'numero_cua' => ['nullable', 'string', 'max:40'],
             'dias_trabajados' => ['required', 'integer', 'min:0', 'max:31'],
-            'total_ganado' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
+            'total_ganado' => ['required', 'regex:/^\d{1,8}([.,]\d{1,2})?$/'],
             'habilitado' => ['required', 'boolean'],
+        ], [
+            'total_ganado.regex' => 'El total ganado debe ser un monto válido, por ejemplo 8500.00.',
         ]);
 
         $resultado = $this->gestoraPlanillaService->actualizar($personal, (int) $datos['anio'], (int) $datos['mes'], $datos);
@@ -139,6 +152,41 @@ class GestoraPlanillaController extends ApiController
         }
 
         return $this->ok($resultado['fila'], 'Datos de gestora actualizados.');
+    }
+
+    public function actualizarLote(Request $request, int $empresaClienteId): JsonResponse
+    {
+        if (! ColaboradorAutorizacionService::empresaAccesible($request->user(), $empresaClienteId)) {
+            return $this->fail('Sin acceso a esta empresa.', 403);
+        }
+
+        if (! ColaboradorAutorizacionService::puedeEditarPersonal($request->user(), $empresaClienteId)) {
+            return $this->fail('No autorizado para editar datos de personal.', 403);
+        }
+
+        $datos = $request->validate([
+            'anio' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'mes' => ['required', 'integer', 'min:1', 'max:12'],
+            'filas' => ['required', 'array', 'min:1', 'max:100'],
+            'filas.*.personal_id' => ['required', 'integer', 'distinct'],
+            'filas.*.dias_trabajados' => ['required', 'integer', 'min:0', 'max:31'],
+            'filas.*.total_ganado' => ['required', 'regex:/^\d{1,8}([.,]\d{1,2})?$/'],
+        ], [
+            'filas.*.dias_trabajados.*' => 'Los días trabajados deben ser un entero entre 0 y 31.',
+            'filas.*.total_ganado.*' => 'El total ganado debe ser un monto válido, por ejemplo 8500.00.',
+        ]);
+
+        $resultado = $this->gestoraPlanillaService->actualizarLote(
+            $empresaClienteId,
+            (int) $datos['anio'],
+            (int) $datos['mes'],
+            $datos['filas'],
+        );
+        if (isset($resultado['error'])) {
+            return $this->fail($resultado['error'], 422);
+        }
+
+        return $this->ok($resultado, 'Días y total ganado guardados.');
     }
 
     /**
