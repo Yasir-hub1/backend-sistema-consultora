@@ -21,7 +21,7 @@ class PersonalController extends ApiController
             return $this->fail('Sin empresa asociada.', 403);
         }
 
-        $q = $emp->personal()->with(['afp', 'caja', 'ministerio']);
+        $q = $emp->personal();
 
         if ($s = trim((string) $request->get('search'))) {
             if ($s !== '') {
@@ -44,12 +44,6 @@ class PersonalController extends ApiController
                 'apellidos' => $per->apellidos,
                 'ci' => $per->ci,
                 'cargo' => $per->cargo,
-                'estado_afp' => $per->afp?->estado,
-                'estado_caja' => $per->caja?->estado,
-                'estado_ministerio' => $per->ministerio?->estado,
-                'personal_afp' => $per->afp,
-                'personal_caja' => $per->caja,
-                'personal_ministerio' => $per->ministerio,
             ];
         })->all();
 
@@ -62,39 +56,6 @@ class PersonalController extends ApiController
             'stats' => [
                 'total_personal' => $emp->personal()->count(),
             ],
-        ]);
-    }
-
-    public function show(Request $request, int $personalId): JsonResponse
-    {
-        $emp = $this->empresa($request);
-        if (! $emp) {
-            return $this->fail('Sin empresa asociada.', 403);
-        }
-
-        $per = $emp->personal()
-            ->whereKey($personalId)
-            ->with([
-                'afp',
-                'caja',
-                'ministerio',
-                'documentos' => fn ($q) => $q->where('eliminado', false)->with('tipoDocumento'),
-            ])
-            ->first();
-
-        if (! $per) {
-            return $this->fail('No encontrado', 404);
-        }
-
-        $docsAfp = $per->documentos->where('modulo', 'afp')->values();
-        $docsCaja = $per->documentos->where('modulo', 'caja')->values();
-        $docsMt = $per->documentos->where('modulo', 'ministerio')->values();
-
-        return $this->ok([
-            ...$per->toArray(),
-            'documentos_afp' => $docsAfp,
-            'documentos_caja' => $docsCaja,
-            'documentos_ministerio' => $docsMt,
         ]);
     }
 }

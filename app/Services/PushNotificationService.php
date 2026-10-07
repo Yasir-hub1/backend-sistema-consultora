@@ -147,7 +147,6 @@ class PushNotificationService
     {
         $mod = $alerta->modulo;
         $eid = $alerta->empresa_id;
-        $pid = $alerta->personal_id;
         $tipo = $usuario->tipo;
 
         if ($mod === 'asignacion_empresa' && $tipo === 'colaborador') {
@@ -166,7 +165,7 @@ class PushNotificationService
                 return $eid ? "/consultora/mis-empresas/{$eid}" : '/consultora/dashboard';
             }
             if ($tipo === 'empresa_cliente') {
-                return $pid ? "/empresa-cliente/personal/{$pid}" : '/empresa-cliente/personal';
+                return '/empresa-cliente/personal';
             }
         }
         if ($mod === 'declaracion_mensual' && $tipo === 'empresa_cliente') {

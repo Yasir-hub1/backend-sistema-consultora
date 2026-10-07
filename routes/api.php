@@ -5,7 +5,6 @@ use App\Http\Controllers\Api\Admin\EstadisticaController;
 use App\Http\Controllers\Api\Auth\LaboraAuthController;
 use App\Http\Controllers\Api\Colaborador\AlertaController as ColaboradorAlertaController;
 use App\Http\Controllers\Api\Colaborador\DashboardController as ColaboradorDashboardController;
-use App\Http\Controllers\Api\Colaborador\DeclaracionAguinaldoController;
 use App\Http\Controllers\Api\Colaborador\DeclaracionMensualController;
 use App\Http\Controllers\Api\Colaborador\DocumentoModuloController;
 use App\Http\Controllers\Api\Colaborador\EmpresaAsignadaController;
@@ -23,9 +22,7 @@ use App\Http\Controllers\Api\Consultora\ReporteResumenAportesController;
 use App\Http\Controllers\Api\Consultora\TiposDocumentoController;
 use App\Http\Controllers\Api\EmpresaCliente\AlertaController as EmpresaClienteAlertaController;
 use App\Http\Controllers\Api\EmpresaCliente\DashboardController as EmpresaClienteDashboardController;
-use App\Http\Controllers\Api\EmpresaCliente\DeclaracionAguinaldoController as EmpresaClienteDeclaracionAguinaldoController;
 use App\Http\Controllers\Api\EmpresaCliente\DeclaracionMensualController as EmpresaClienteDeclaracionMensualController;
-use App\Http\Controllers\Api\EmpresaCliente\DocumentoDescargaController;
 use App\Http\Controllers\Api\EmpresaCliente\MiConsultoraController;
 use App\Http\Controllers\Api\EmpresaCliente\MiEmpresaDocumentoController;
 use App\Http\Controllers\Api\EmpresaCliente\OtrosDocumentosController as EmpresaClienteOtrosDocumentosController;
@@ -139,17 +136,6 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:colaborador,consultora'])->pref
         ->whereNumber('empresaClienteId')
         ->whereNumber('id');
 
-    Route::get('/empresas-cliente/{empresaClienteId}/declaraciones-aguinaldo', [DeclaracionAguinaldoController::class, 'index'])
-        ->whereNumber('empresaClienteId');
-    Route::post('/empresas-cliente/{empresaClienteId}/declaraciones-aguinaldo', [DeclaracionAguinaldoController::class, 'store'])
-        ->whereNumber('empresaClienteId');
-    Route::get('/empresas-cliente/{empresaClienteId}/declaraciones-aguinaldo/{id}/vista-previa', [DeclaracionAguinaldoController::class, 'vistaPrevia'])
-        ->whereNumber('empresaClienteId')
-        ->whereNumber('id');
-    Route::get('/empresas-cliente/{empresaClienteId}/declaraciones-aguinaldo/{id}/descargar', [DeclaracionAguinaldoController::class, 'descargar'])
-        ->whereNumber('empresaClienteId')
-        ->whereNumber('id');
-
     Route::get('/empresas-cliente/{empresaClienteId}/personal', [ColaboradorPersonalController::class, 'index'])->whereNumber('empresaClienteId');
     Route::post('/empresas-cliente/{empresaClienteId}/personal', [ColaboradorPersonalController::class, 'store'])->whereNumber('empresaClienteId');
     Route::get('/empresas-cliente/{empresaClienteId}/personal/plantilla-registro-masivo', [ColaboradorPersonalController::class, 'descargarPlantillaRegistroMasivo'])
@@ -240,20 +226,12 @@ Route::middleware(['auth:sanctum', 'usuario.tipo:empresa_cliente'])->prefix('emp
     Route::patch('/alertas/marcar-todas-leidas', [EmpresaClienteAlertaController::class, 'marcarTodasLeidas']);
     Route::patch('/alertas/{id}/marcar-leida', [EmpresaClienteAlertaController::class, 'marcarLeida'])->whereNumber('id');
     Route::get('/personal', [EmpresaClientePersonalController::class, 'index']);
-    Route::get('/personal/{personalId}', [EmpresaClientePersonalController::class, 'show'])->whereNumber('personalId');
-    Route::get('/documentos/{documento}/descargar', [DocumentoDescargaController::class, 'url'])->whereNumber('documento');
-    Route::get('/documentos/{documento}/stream', [DocumentoDescargaController::class, 'stream'])->whereNumber('documento');
 
     Route::get('/declaraciones-mensuales', [EmpresaClienteDeclaracionMensualController::class, 'index']);
     Route::post('/declaraciones-mensuales/descarga-zip', [EmpresaClienteDeclaracionMensualController::class, 'descargarZip']);
     Route::get('/declaraciones-mensuales/{id}/vista-previa', [EmpresaClienteDeclaracionMensualController::class, 'vistaPrevia'])
         ->whereNumber('id');
     Route::get('/declaraciones-mensuales/{id}/descargar', [EmpresaClienteDeclaracionMensualController::class, 'descargar'])
-        ->whereNumber('id');
-    Route::get('/declaraciones-aguinaldo', [EmpresaClienteDeclaracionAguinaldoController::class, 'index']);
-    Route::get('/declaraciones-aguinaldo/{id}/vista-previa', [EmpresaClienteDeclaracionAguinaldoController::class, 'vistaPrevia'])
-        ->whereNumber('id');
-    Route::get('/declaraciones-aguinaldo/{id}/descargar', [EmpresaClienteDeclaracionAguinaldoController::class, 'descargar'])
         ->whereNumber('id');
     Route::get('/otros-documentos', [EmpresaClienteOtrosDocumentosController::class, 'index']);
     Route::get('/otros-documentos/{id}/vista-previa', [EmpresaClienteOtrosDocumentosController::class, 'vistaPrevia'])

@@ -379,7 +379,7 @@ class PersonalController extends ApiController
                     'contexto' => [
                         'paths' => [
                             'consultora' => '/consultora/mis-empresas/'.$empresa->id,
-                            'empresa_cliente' => '/empresa-cliente/personal/'.$per->id,
+                            'empresa_cliente' => '/empresa-cliente/personal',
                         ],
                     ],
                 ]);
@@ -726,7 +726,7 @@ class PersonalController extends ApiController
                                 'contexto' => [
                                     'paths' => [
                                         'consultora' => '/consultora/mis-empresas/'.$empresa->id,
-                                        'empresa_cliente' => '/empresa-cliente/personal/'.$per->id,
+                                        'empresa_cliente' => '/empresa-cliente/personal',
                                     ],
                                 ],
                             ]);

@@ -160,29 +160,6 @@ class ColaboradorAutorizacionService
     }
 
     /**
-     * Declaración anual de aguinaldo: solo flag puede_declarar_aguinaldo en colaborador.
-     */
-    public static function puedeCargarDeclaracionAguinaldo(Usuario $u, int $empresaClienteId): bool
-    {
-        $emp = EmpresaCliente::query()->find($empresaClienteId);
-        if (! $emp) {
-            return false;
-        }
-        if (self::esConsultoraTitularDeEmpresa($u, $emp)) {
-            return true;
-        }
-        $c = $u->colaborador;
-        if (! $c) {
-            return false;
-        }
-        if (! $c->empresasCliente()->whereKey($empresaClienteId)->wherePivot('activo', true)->exists()) {
-            return false;
-        }
-
-        return (bool) $c->puede_declarar_aguinaldo;
-    }
-
-    /**
      * PDFs varios asociados a la empresa desde el listado de personal (colaborador/consultora).
      */
     public static function puedeGestionarOtrosDocumentosEmpresa(Usuario $u, int $empresaClienteId): bool
